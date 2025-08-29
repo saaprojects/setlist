@@ -67,7 +67,7 @@ class MusicCollaborationResponse(BaseModel):
     collaborator_id: int
     role: str
     message: str
-    status: str = Field(..., regex="^(pending|accepted|declined)$")
+    status: str = Field(..., pattern="^(pending|accepted|declined)$")
     created_at: datetime
     updated_at: datetime
 
