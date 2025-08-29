@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { authApi } from '@/api/auth'
+import { UserRole } from '@/types/auth'
 import { User } from '@/types/auth'
 
 interface AuthState {
@@ -19,7 +20,7 @@ export const useAuth = () => {
   const queryClient = useQueryClient()
 
   // Check if user is authenticated on mount
-  const { data: user, isLoading: isCheckingAuth } = useQuery(
+  const { data: _user, isLoading: isCheckingAuth } = useQuery(
     'auth-user',
     authApi.getCurrentUser,
     {
@@ -43,9 +44,9 @@ export const useAuth = () => {
 
   // Login mutation
   const loginMutation = useMutation(authApi.login, {
-    onSuccess: (userData) => {
+    onSuccess: (authResponse) => {
       setAuthState({
-        user: userData,
+        user: authResponse.user,
         isAuthenticated: true,
         isLoading: false,
       })
@@ -62,9 +63,9 @@ export const useAuth = () => {
 
   // Register mutation
   const registerMutation = useMutation(authApi.register, {
-    onSuccess: (userData) => {
+    onSuccess: (authResponse) => {
       setAuthState({
-        user: userData,
+        user: authResponse.user,
         isAuthenticated: true,
         isLoading: false,
       })
@@ -113,7 +114,7 @@ export const useAuth = () => {
     username: string
     password: string
     display_name: string
-    role: string
+    role: UserRole
   }) => {
     setAuthState(prev => ({ ...prev, isLoading: true }))
     return registerMutation.mutateAsync(userData)

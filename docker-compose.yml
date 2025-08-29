@@ -15,10 +15,11 @@ services:
       - BACKEND_PORT=8000
       - BACKEND_RELOAD=true
       - BACKEND_LOG_LEVEL=info
+      - DATABASE_URL=${SUPABASE_DATABASE_URL}
     env_file:
       - .env
     depends_on:
-      - postgres
+      - redis
     networks:
       - setlist-network
 
@@ -40,18 +41,7 @@ services:
     networks:
       - setlist-network
 
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: setlist_dev
-      POSTGRES_USER: setlist_user
-      POSTGRES_PASSWORD: setlist_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - setlist-network
+
 
   redis:
     image: redis:7-alpine
@@ -61,7 +51,6 @@ services:
       - setlist-network
 
 volumes:
-  postgres_data:
 
 networks:
   setlist-network:

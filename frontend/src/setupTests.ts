@@ -6,6 +6,10 @@ global.IntersectionObserver = class IntersectionObserver {
   disconnect() {}
   observe() {}
   unobserve() {}
+  root = null
+  rootMargin = ''
+  thresholds = []
+  takeRecords() { return [] }
 }
 
 // Mock ResizeObserver

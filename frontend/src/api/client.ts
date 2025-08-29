@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
+import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { toast } from 'react-hot-toast'
 
 // Create axios instance
@@ -12,7 +12,7 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('access_token')
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
@@ -61,8 +61,8 @@ apiClient.interceptors.response.use(
     }
 
     // Handle other errors
-    if (error.response?.data?.detail) {
-      toast.error(error.response.data.detail)
+    if (error.response?.data && typeof error.response.data === 'object' && 'detail' in error.response.data) {
+      toast.error((error.response.data as any).detail)
     } else if (error.response?.status === 500) {
       toast.error('Internal server error. Please try again later.')
     } else if (error.response?.status === 404) {

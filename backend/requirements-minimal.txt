@@ -1,0 +1,40 @@
+# FastAPI and web framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database and ORM
+sqlalchemy
+alembic
+psycopg2-binary
+
+# Authentication and security
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+
+# Data validation and settings
+pydantic
+pydantic-settings
+
+# File handling
+aiofiles
+
+# HTTP client
+httpx
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+
+# Development tools
+black
+isort
+flake8
+mypy
+
+# Utilities
+python-dateutil
+pytz

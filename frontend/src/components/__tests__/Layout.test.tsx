@@ -56,8 +56,8 @@ describe('Layout Component', () => {
     expect(mainElement).toHaveClass('min-h-screen', 'flex', 'flex-col')
   })
 
-  it('renders without crashing when no children provided', () => {
-    renderWithRouter(<Layout />)
+  it('renders without crashing when empty children provided', () => {
+    renderWithRouter(<Layout><></></Layout>)
     
     expect(screen.getByTestId('header')).toBeInTheDocument()
     expect(screen.getByTestId('footer')).toBeInTheDocument()

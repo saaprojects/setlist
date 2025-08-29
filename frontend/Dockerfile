@@ -6,14 +6,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+        # Install dependencies (including dev dependencies for building)
+    RUN npm install
 
-# Copy source code
-COPY . .
+    # Copy source code
+    COPY . .
 
-# Build the application
-RUN npm run build
+    # Build the application
+    RUN npm run build
+
+    # Remove dev dependencies after build
+    RUN npm prune --omit=dev
 
 # Install serve to run the built app
 RUN npm install -g serve

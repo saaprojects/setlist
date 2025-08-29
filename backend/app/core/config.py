@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
     # Database Configuration
-    DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/setlist"
+    DATABASE_URL: str = "postgresql://postgres.vtoxkfrkpzwotgvsigrw:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
     
     # Supabase Configuration
     SUPABASE_URL: str = "https://vtoxkfrkpzwotgvsigrw.supabase.co"
