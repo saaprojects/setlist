@@ -43,10 +43,10 @@ class TestUserRegistration:
             self._cleanup_test_user(user_data["email"])
     
     def test_artist_can_register_with_artist_role(self, client: TestClient):
-        """Test that an artist can register with artist role."""
+        """Test that an artist can register with artist role through the general auth endpoint."""
         artist_data = {
-            "email": "testartist@example.com",
-            "username": "testartist123",
+            "email": "testartistrole@example.com",
+            "username": "testartistrole123",
             "password": "securepassword123",
             "display_name": "Test Artist",
             "role": "artist"
@@ -57,10 +57,11 @@ class TestUserRegistration:
             assert response.status_code == 201
             data = response.json()
             assert data["user"]["role"] == "artist"
-            
+            assert "access_token" in data
+            assert "refresh_token" in data
         finally:
-            # Clean up: Delete the test artist
-            self._cleanup_test_user(artist_data["email"])
+            # Clean up test user
+            self._cleanup_test_user("testartistrole@example.com")
     
     def test_registration_requires_all_fields(self, client: TestClient):
         """Test that registration fails without required fields."""

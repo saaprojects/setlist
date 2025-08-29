@@ -32,7 +32,7 @@ class MusicGenre(str, Enum):
     METAL = "metal"
     PUNK = "punk"
     REGGAE = "reggae"
-    R_AND_B = "r_andb"
+    R_AND_B = "r_and_b"
     SOUL = "soul"
     FUNK = "funk"
     LATIN = "latin"
