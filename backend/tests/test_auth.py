@@ -33,10 +33,25 @@ class TestUserRegistration:
         # Delete test users (identified by @example.com emails)
         test_users = db.query(User).filter(User.email.like("%@example.com")).all()
         for user in test_users:
+            # Delete related records first (in correct order)
+            # Delete collaborations where user is requester or target
+            collaborations = db.query(Collaboration).filter(
+                (Collaboration.requester_id == user.id) | (Collaboration.target_artist_id == user.id)
+            ).all()
+            for collab in collaborations:
+                db.delete(collab)
+            
+            # Delete music tracks by user
+            music_tracks = db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).all()
+            for track in music_tracks:
+                db.delete(track)
+            
             # Delete associated artist profile if it exists
             artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
             if artist_profile:
                 db.delete(artist_profile)
+            
+            # Finally delete the user
             db.delete(user)
         
         db.commit()
@@ -44,6 +59,8 @@ class TestUserRegistration:
         # Reset sequences
         db.execute(text("SELECT setval('users_id_seq', 1, false)"))
         db.execute(text("SELECT setval('artist_profiles_id_seq', 1, false)"))
+        db.execute(text("SELECT setval('music_tracks_id_seq', 1, false)"))
+        db.execute(text("SELECT setval('collaborations_id_seq', 1, false)"))
         db.commit()
 
     def test_user_can_register_with_basic_info(self, client: TestClient):
@@ -211,10 +228,25 @@ class TestUserLogin:
         # Delete test users (identified by @example.com emails)
         test_users = db.query(User).filter(User.email.like("%@example.com")).all()
         for user in test_users:
+            # Delete related records first (in correct order)
+            # Delete collaborations where user is requester or target
+            collaborations = db.query(Collaboration).filter(
+                (Collaboration.requester_id == user.id) | (Collaboration.target_artist_id == user.id)
+            ).all()
+            for collab in collaborations:
+                db.delete(collab)
+            
+            # Delete music tracks by user
+            music_tracks = db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).all()
+            for track in music_tracks:
+                db.delete(track)
+            
             # Delete associated artist profile if it exists
             artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
             if artist_profile:
                 db.delete(artist_profile)
+            
+            # Finally delete the user
             db.delete(user)
         
         db.commit()
@@ -222,6 +254,8 @@ class TestUserLogin:
         # Reset sequences
         db.execute(text("SELECT setval('users_id_seq', 1, false)"))
         db.execute(text("SELECT setval('artist_profiles_id_seq', 1, false)"))
+        db.execute(text("SELECT setval('music_tracks_id_seq', 1, false)"))
+        db.execute(text("SELECT setval('collaborations_id_seq', 1, false)"))
         db.commit()
 
     def test_user_can_login_with_valid_credentials(self, client: TestClient):
@@ -292,10 +326,25 @@ class TestUserAuthentication:
         # Delete test users (identified by @example.com emails)
         test_users = db.query(User).filter(User.email.like("%@example.com")).all()
         for user in test_users:
+            # Delete related records first (in correct order)
+            # Delete collaborations where user is requester or target
+            collaborations = db.query(Collaboration).filter(
+                (Collaboration.requester_id == user.id) | (Collaboration.target_artist_id == user.id)
+            ).all()
+            for collab in collaborations:
+                db.delete(collab)
+            
+            # Delete music tracks by user
+            music_tracks = db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).all()
+            for track in music_tracks:
+                db.delete(track)
+            
             # Delete associated artist profile if it exists
             artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
             if artist_profile:
                 db.delete(artist_profile)
+            
+            # Finally delete the user
             db.delete(user)
         
         db.commit()
@@ -303,6 +352,8 @@ class TestUserAuthentication:
         # Reset sequences
         db.execute(text("SELECT setval('users_id_seq', 1, false)"))
         db.execute(text("SELECT setval('artist_profiles_id_seq', 1, false)"))
+        db.execute(text("SELECT setval('music_tracks_id_seq', 1, false)"))
+        db.execute(text("SELECT setval('collaborations_id_seq', 1, false)"))
         db.commit()
 
     def test_user_can_access_protected_endpoint_with_valid_token(self, client: TestClient):
