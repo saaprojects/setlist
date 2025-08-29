@@ -50,7 +50,7 @@ services:
     networks:
       - setlist-network
 
-volumes:
+volumes: {}
 
 networks:
   setlist-network:
