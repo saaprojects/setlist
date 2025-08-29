@@ -23,15 +23,15 @@ class Settings(BaseSettings):
     ALLOWED_HOSTS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
     # Database Configuration
-    DATABASE_URL: str = "postgresql://postgres.vtoxkfrkpzwotgvsigrw:password@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+    SUPABASE_DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/setlist"
     
     # Supabase Configuration
-    SUPABASE_URL: str = "https://vtoxkfrkpzwotgvsigrw.supabase.co"
-    SUPABASE_API_KEY: str = "sb_publishable__6mwT6WNeD6raZ-9-hU99g_8WBEeDGB"
-    SUPABASE_SECRET_KEY: str = "sb_secret_QzFHoXCLuWM2huhnECOZ9g__gTYuZZK"
+    PUBLIC_SUPABASE_URL: str = ""
+    SUPABASE_API_KEY: str = ""
+    SUPABASE_SECRET_KEY: str = ""
     
     # JWT Configuration
-    JWT_SECRET_KEY: str = "your-secret-key-here"
+    JWT_SECRET_KEY: str = "your-secret-key-here-change-in-production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     

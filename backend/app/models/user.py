@@ -35,3 +35,5 @@ class User(BaseModel):
     # Relationships
     artist_profile = relationship("ArtistProfile", back_populates="user", uselist=False)
     music_tracks = relationship("MusicTrack", back_populates="artist")
+    sent_collaborations = relationship("Collaboration", foreign_keys="Collaboration.requester_id", back_populates="requester")
+    received_collaborations = relationship("Collaboration", foreign_keys="Collaboration.target_artist_id", back_populates="target_artist")

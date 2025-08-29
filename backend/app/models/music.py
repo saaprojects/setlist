@@ -2,7 +2,7 @@
 Music track models.
 """
 
-from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer
+from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, JSON
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -19,11 +19,11 @@ class MusicTrack(BaseModel):
     # Track information
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    genre = Column(String(100), nullable=False)
-    tags = Column(Text, nullable=True)  # JSON string for now
+    genre = Column(String(100), nullable=True)
+    tags = Column(JSON, nullable=True)  # JSON array for tags
     
     # File information
-    audio_url = Column(String(500), nullable=False)
+    audio_url = Column(String(500), nullable=True)
     duration = Column(Integer, nullable=True)  # Duration in seconds
     file_size = Column(Integer, nullable=True)  # File size in bytes
     

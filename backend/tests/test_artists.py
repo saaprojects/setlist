@@ -20,7 +20,8 @@ class TestArtistRegistration:
         """Ensure clean database before running tests."""
         from app.core.database import get_db
         from app.models.user import User
-        from app.models.artist import ArtistProfile
+        from app.models.artist import ArtistProfile, Collaboration
+        from app.models.music import MusicTrack
         from sqlalchemy import text
         
         db = next(get_db())
@@ -28,6 +29,17 @@ class TestArtistRegistration:
             # Clean up any existing test data
             test_users = db.query(User).filter(User.email.like('%@example.com')).all()
             if test_users:
+                # Delete collaborations first
+                for user in test_users:
+                    db.query(Collaboration).filter(
+                        (Collaboration.requester_id == user.id) | 
+                        (Collaboration.target_artist_id == user.id)
+                    ).delete()
+                
+                # Delete music tracks first
+                for user in test_users:
+                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
+                
                 # Delete artist profiles first
                 for user in test_users:
                     artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
@@ -166,13 +178,25 @@ class TestArtistProfile:
         """Ensure clean database before running tests."""
         from app.core.database import get_db
         from app.models.user import User
-        from app.models.artist import ArtistProfile
+        from app.models.artist import ArtistProfile, Collaboration
+        from app.models.music import MusicTrack
         
         db = next(get_db())
         try:
             # Clean up any existing test data
             test_users = db.query(User).filter(User.email.like('%@example.com')).all()
             if test_users:
+                # Delete collaborations first
+                for user in test_users:
+                    db.query(Collaboration).filter(
+                        (Collaboration.requester_id == user.id) | 
+                        (Collaboration.target_artist_id == user.id)
+                    ).delete()
+                
+                # Delete music tracks first
+                for user in test_users:
+                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
+                
                 # Delete artist profiles first
                 for user in test_users:
                     artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
@@ -253,13 +277,25 @@ class TestArtistDiscovery:
         """Ensure clean database before running tests."""
         from app.core.database import get_db
         from app.models.user import User
-        from app.models.artist import ArtistProfile
+        from app.models.artist import ArtistProfile, Collaboration
+        from app.models.music import MusicTrack
         
         db = next(get_db())
         try:
             # Clean up any existing test data
             test_users = db.query(User).filter(User.email.like('%@example.com')).all()
             if test_users:
+                # Delete collaborations first
+                for user in test_users:
+                    db.query(Collaboration).filter(
+                        (Collaboration.requester_id == user.id) | 
+                        (Collaboration.target_artist_id == user.id)
+                    ).delete()
+                
+                # Delete music tracks first
+                for user in test_users:
+                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
+                
                 # Delete artist profiles first
                 for user in test_users:
                     artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
@@ -334,13 +370,25 @@ class TestArtistCollaboration:
         """Ensure clean database before running tests."""
         from app.core.database import get_db
         from app.models.user import User
-        from app.models.artist import ArtistProfile
+        from app.models.artist import ArtistProfile, Collaboration
+        from app.models.music import MusicTrack
         
         db = next(get_db())
         try:
             # Clean up any existing test data
             test_users = db.query(User).filter(User.email.like('%@example.com')).all()
             if test_users:
+                # Delete collaborations first
+                for user in test_users:
+                    db.query(Collaboration).filter(
+                        (Collaboration.requester_id == user.id) | 
+                        (Collaboration.target_artist_id == user.id)
+                    ).delete()
+                
+                # Delete music tracks first
+                for user in test_users:
+                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
+                
                 # Delete artist profiles first
                 for user in test_users:
                     artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
@@ -503,7 +551,47 @@ def client():
 @pytest.fixture
 def auth_headers():
     """Return headers with authentication token."""
-    return {"Authorization": "Bearer test-token"}
+    from app.core.security import create_access_token
+    from app.models.user import User, UserRole
+    from app.core.database import get_db
+    from app.models.artist import ArtistProfile
+    
+    # Create a test user and artist profile
+    db = next(get_db())
+    try:
+        # Check if test user already exists
+        test_user = db.query(User).filter(User.email == "testartist@example.com").first()
+        if not test_user:
+            from app.core.security import get_password_hash
+            
+            test_user = User(
+                email="testartist@example.com",
+                username="testartist",
+                password_hash=get_password_hash("testpassword123"),
+                display_name="Test Artist",
+                role=UserRole.artist,
+                is_active=True
+            )
+            db.add(test_user)
+            db.commit()
+            db.refresh(test_user)
+            
+            # Create artist profile
+            artist_profile = ArtistProfile(
+                user_id=test_user.id,
+                bio="Test artist bio",
+                genres=["rock", "alternative"],
+                instruments=["guitar", "vocals"]
+            )
+            db.add(artist_profile)
+            db.commit()
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": test_user.username})
+        
+        return {"Authorization": f"Bearer {access_token}"}
+    finally:
+        db.close()
 
 
 @pytest.fixture(autouse=True)
