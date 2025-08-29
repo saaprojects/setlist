@@ -1,25 +1,14 @@
 """
-Artist Pydantic schemas.
+Artist-related schemas for the Setlist application.
 """
 
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
+from pydantic import BaseModel
 
 
 class ArtistCreate(BaseModel):
-    """Artist creation schema."""
-    email: EmailStr
-    username: str
-    password: str
-    display_name: str
-    bio: Optional[str] = None
-    genres: Optional[List[str]] = None
-    instruments: Optional[List[str]] = None
-
-
-class ArtistUpdate(BaseModel):
-    """Artist update schema."""
+    """Artist creation request model."""
     bio: Optional[str] = None
     genres: Optional[List[str]] = None
     instruments: Optional[List[str]] = None
@@ -27,22 +16,17 @@ class ArtistUpdate(BaseModel):
     website: Optional[str] = None
 
 
-class UserResponse(BaseModel):
-    """User response schema for artist registration."""
-    id: int
-    email: EmailStr
-    username: str
-    display_name: str
-    role: str
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-    
-    model_config = {"from_attributes": True}
+class ArtistUpdate(BaseModel):
+    """Artist profile update request model."""
+    bio: Optional[str] = None
+    genres: Optional[List[str]] = None
+    instruments: Optional[List[str]] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
 
 
 class ArtistResponse(BaseModel):
-    """Artist response schema."""
+    """Artist profile response model."""
     id: int
     user_id: int
     bio: Optional[str] = None
@@ -56,12 +40,18 @@ class ArtistResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ArtistRegistrationResponse(BaseModel):
-    """Artist registration response schema."""
-    user: UserResponse
-    artist_profile: ArtistResponse
-    access_token: str
-    refresh_token: str
+class UserResponse(BaseModel):
+    """User response model for artist endpoints."""
+    id: int
+    email: str
+    username: str
+    display_name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = {"from_attributes": True}
 
 
 class ArtistProfileResponse(BaseModel):
@@ -78,8 +68,10 @@ class ArtistProfileResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Music Track Schemas
+
 class MusicTrackCreate(BaseModel):
-    """Music track creation schema."""
+    """Music track creation request model."""
     title: str
     description: Optional[str] = None
     genre: Optional[str] = None
@@ -88,7 +80,7 @@ class MusicTrackCreate(BaseModel):
 
 
 class MusicTrackUpdate(BaseModel):
-    """Music track update schema."""
+    """Music track update request model."""
     title: Optional[str] = None
     description: Optional[str] = None
     genre: Optional[str] = None
@@ -97,16 +89,14 @@ class MusicTrackUpdate(BaseModel):
 
 
 class MusicTrackResponse(BaseModel):
-    """Music track response schema."""
+    """Music track response model."""
     id: int
     artist_id: int
     title: str
     description: Optional[str] = None
     genre: Optional[str] = None
     tags: Optional[List[str]] = None
-    audio_url: Optional[str] = None
-    duration: Optional[float] = None
-    file_size: Optional[int] = None
+    audio_url: str
     is_public: bool
     created_at: datetime
     updated_at: datetime
@@ -114,25 +104,28 @@ class MusicTrackResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Collaboration Schemas
+
 class CollaborationCreate(BaseModel):
-    """Collaboration request creation schema."""
+    """Collaboration creation request model."""
     target_artist_id: int
     message: str
-    project_type: Optional[str] = None
+    project_type: str
 
 
 class CollaborationUpdate(BaseModel):
-    """Collaboration update schema."""
-    status: str  # "accepted" or "declined"
+    """Collaboration update request model."""
+    message: Optional[str] = None
+    project_type: Optional[str] = None
 
 
 class CollaborationResponse(BaseModel):
-    """Collaboration response schema."""
+    """Collaboration response model."""
     id: int
     requester_id: int
     target_artist_id: int
     message: str
-    project_type: Optional[str] = None
+    project_type: str
     status: str
     created_at: datetime
     updated_at: datetime

@@ -1,71 +1,37 @@
 """
-Authentication endpoints for user login, registration, and token management.
+Authentication endpoints for the Setlist application.
 """
 
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from typing import Optional
-from jose import JWTError, jwt
 
 from app.core.database import get_db
-from app.core.security import get_password_hash, verify_password, create_access_token
-
+from app.core.security import (
+    verify_password, get_password_hash, create_access_token, decode_access_token
+)
 from app.models.user import User, UserRole
+from app.models.artist import ArtistProfile
+from app.schemas.auth import (
+    UserCreate, UserLogin, UserResponse, TokenResponse, UserRegistrationResponse
+)
+from app.schemas.artist import ArtistProfileResponse
 
 router = APIRouter()
 
 # OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-class UserLogin(BaseModel):
-    """User login request model."""
-    username: str  # Can be email or username
-    password: str
-
-
-class UserRegister(BaseModel):
-    """User registration request model."""
-    email: EmailStr
-    username: str
-    password: str
-    display_name: str
-    role: UserRole
-
-
-class UserResponse(BaseModel):
-    """User response model."""
-    id: int
-    email: EmailStr
-    username: str
-    display_name: str
-    role: str
-    is_active: bool
-    
-    model_config = {"from_attributes": True}
-
-
-class Token(BaseModel):
-    """Token response model."""
-    access_token: str
-    token_type: str
-
-
-class RegistrationResponse(BaseModel):
-    """User registration response model."""
-    user: UserResponse
-    access_token: str
-    refresh_token: str
-
-
-@router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
-async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
+@router.post("/register", response_model=UserRegistrationResponse, status_code=status.HTTP_201_CREATED)
+async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user.
     
-    This endpoint allows users to create new accounts with basic information.
+    This endpoint handles registration for all user types (regular users, artists, promoters).
+    If registering as an artist, it automatically creates an associated artist profile.
     """
     # Check if email already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -105,31 +71,48 @@ async def register_user(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
+    # If registering as an artist, create associated artist profile
+    artist_profile = None
+    if user_data.role == UserRole.artist:
+        artist_profile = ArtistProfile(
+            user_id=new_user.id,
+            bio=None,  # Can be updated later
+            genres=None,  # Can be updated later
+            instruments=None,  # Can be updated later
+            location=None,  # Can be updated later
+            website=None  # Can be updated later
+        )
+        db.add(artist_profile)
+        db.commit()
+        db.refresh(artist_profile)
+    
     # Generate tokens
     access_token = create_access_token(data={"sub": new_user.username})
-    refresh_token = create_access_token(data={"sub": new_user.username}, expires_delta=None)  # TODO: Implement proper refresh token
+    refresh_token = create_access_token(data={"sub": new_user.username}, expires_delta=None)
     
-    return RegistrationResponse(
-        user=UserResponse.model_validate(new_user),
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
+    # Prepare response
+    response_data = {
+        "user": UserResponse.model_validate(new_user),
+        "access_token": access_token,
+        "refresh_token": refresh_token
+    }
+    
+    # Include artist profile if created
+    if artist_profile:
+        response_data["artist_profile"] = ArtistProfileResponse.model_validate(artist_profile)
+    
+    return UserRegistrationResponse.model_validate(response_data)
 
 
-@router.post("/login", response_model=Token)
-async def login_user(user_credentials: UserLogin, db: Session = Depends(get_db)):
+@router.post("/login", response_model=TokenResponse)
+async def login_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
-    Authenticate user and return access token.
-    
-    This endpoint validates user credentials and returns a JWT token
-    for authenticated requests.
+    Login user and return access token.
     """
-    # Try to find user by email or username
-    user = db.query(User).filter(
-        (User.email == user_credentials.username) | (User.username == user_credentials.username)
-    ).first()
+    # Find user by username
+    user = db.query(User).filter(User.username == form_data.username).first()
     
-    if not user:
+    if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
@@ -137,112 +120,49 @@ async def login_user(user_credentials: UserLogin, db: Session = Depends(get_db))
     
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is deactivated"
-        )
-    
-    if not verify_password(user_credentials.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
         )
     
     # Generate access token
     access_token = create_access_token(data={"sub": user.username})
     
-    return Token(
+    return TokenResponse(
         access_token=access_token,
-        token_type="bearer"
-    )
-
-
-@router.post("/token", response_model=Token)
-async def get_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    """
-    Get access token using OAuth2 password flow.
-    
-    This endpoint is used by the OAuth2PasswordBearer for token generation.
-    """
-    # TODO: Implement OAuth2 token generation
-    # This is a placeholder - we'll implement after writing tests
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Token generation not yet implemented"
+        token_type="bearer",
+        user=UserResponse.model_validate(user)
     )
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user_endpoint(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
-    Get current authenticated user information.
-    
-    This endpoint returns the profile of the currently authenticated user.
+    Get current user information.
     """
-    try:
-        # Decode the JWT token to get user information
-        from app.core.security import SECRET_KEY, ALGORITHM
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        
-        if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials"
-            )
-            
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
-    
-    # Find user by username
-    user = db.query(User).filter(User.username == username).first()
-    
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is deactivated"
-        )
-    
+    user = await get_current_user(token, db)
     return UserResponse.model_validate(user)
 
 
-@router.post("/logout")
-async def logout_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str, db: Session) -> User:
     """
-    Logout user by invalidating their token.
+    Get the current authenticated user from the token.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     
-    This endpoint invalidates the current user's access token.
-    """
     try:
-        # Decode the JWT token to get user information
-        from app.core.security import SECRET_KEY, ALGORITHM
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_access_token(token)
         username: str = payload.get("sub")
-        
         if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials"
-            )
-            
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
+            raise credentials_exception
+    except Exception:
+        raise credentials_exception
     
-    # For now, we'll just return a success message
-    # In a production system, you'd want to:
-    # 1. Add the token to a blacklist/revoked tokens table
-    # 2. Set up a background job to clean up expired tokens
-    # 3. Check the blacklist in the /me endpoint
+    user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        raise credentials_exception
     
-    return {"message": "Successfully logged out"}
+    return user

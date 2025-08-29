@@ -1,97 +1,36 @@
 """
-Artist endpoints for registration, profile management, and discovery.
+Artist-specific endpoints for the Setlist application.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Optional
 
 from app.core.database import get_db
-from app.core.security import get_password_hash, create_access_token
-from app.models.user import User, UserRole
+from app.api.v1.endpoints.auth import get_current_user, oauth2_scheme
 from app.models.artist import ArtistProfile, Collaboration
 from app.models.music import MusicTrack
+from app.models.user import User, UserRole
 from app.schemas.artist import (
-    ArtistCreate, ArtistUpdate, ArtistResponse, ArtistRegistrationResponse, UserResponse,
+    ArtistCreate, ArtistUpdate, ArtistResponse, UserResponse,
     MusicTrackCreate, MusicTrackUpdate, MusicTrackResponse,
     CollaborationCreate, CollaborationUpdate, CollaborationResponse, ArtistProfileResponse
 )
-from app.api.v1.endpoints.auth import oauth2_scheme
 
 router = APIRouter()
 
-# OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-
-@router.post("/register", response_model=ArtistRegistrationResponse, status_code=status.HTTP_201_CREATED)
-async def register_artist(artist_data: ArtistCreate, db: Session = Depends(get_db)):
-    """
-    Register a new artist.
-    
-    This endpoint allows artists to create new accounts with profile information.
-    """
-    # Check if email already exists
-    existing_user = db.query(User).filter(User.email == artist_data.email).first()
-    if existing_user:
+async def _get_authenticated_artist(token: str, db: Session) -> User:
+    """Helper function to get the authenticated artist user."""
+    user = await get_current_user(token, db)
+    if user.role != UserRole.artist:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only artists can access this resource"
         )
-    
-    # Check if username already exists
-    existing_username = db.query(User).filter(User.username == artist_data.username).first()
-    if existing_username:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
-        )
-    
-    # Validate password strength (minimum 8 characters)
-    if len(artist_data.password) < 8:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Password must be at least 8 characters long"
-        )
-    
-    # Create new user with artist role
-    hashed_password = get_password_hash(artist_data.password)
-    new_user = User(
-        email=artist_data.email,
-        username=artist_data.username,
-        password_hash=hashed_password,
-        display_name=artist_data.display_name,
-        role=UserRole.artist,
-        is_active=True
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    # Create artist profile
-    artist_profile = ArtistProfile(
-        user_id=new_user.id,
-        bio=artist_data.bio,
-        genres=artist_data.genres,
-        instruments=artist_data.instruments
-    )
-    
-    db.add(artist_profile)
-    db.commit()
-    db.refresh(artist_profile)
-    
-    # Generate tokens
-    access_token = create_access_token(data={"sub": new_user.username})
-    refresh_token = create_access_token(data={"sub": new_user.username}, expires_delta=None)
-    
-    return ArtistRegistrationResponse(
-        user=UserResponse.model_validate(new_user),
-        artist_profile=ArtistResponse.model_validate(artist_profile),
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
+    return user
 
 
 @router.get("/me", response_model=ArtistProfileResponse)
@@ -121,26 +60,25 @@ async def get_artist_profile(token: str = Depends(oauth2_scheme), db: Session = 
         "location": artist_profile.location,
         "website": artist_profile.website,
         "created_at": artist_profile.created_at,
-        "updated_at": artist_profile.updated_at
+        "updated_at": artist_profile.updated_at,
     }
     
     return ArtistProfileResponse.model_validate(response_data)
 
 
-@router.put("/me", response_model=ArtistResponse)
+@router.put("/me", response_model=ArtistProfileResponse)
 async def update_artist_profile(
-    profile_update: ArtistUpdate,
+    artist_update: ArtistUpdate,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
     Update current artist's profile.
     
-    This endpoint allows artists to update their profile information.
+    This endpoint allows authenticated artists to update their profile details.
     """
     user = await _get_authenticated_artist(token, db)
     
-    # Get artist profile
     artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
     
     if not artist_profile:
@@ -149,44 +87,56 @@ async def update_artist_profile(
             detail="Artist profile not found"
         )
     
-    # Update profile fields
-    if profile_update.bio is not None:
-        artist_profile.bio = profile_update.bio
-    if profile_update.genres is not None:
-        artist_profile.genres = profile_update.genres
-    if profile_update.instruments is not None:
-        artist_profile.instruments = profile_update.instruments
-    if profile_update.location is not None:
-        artist_profile.location = profile_update.location
-    if profile_update.website is not None:
-        artist_profile.website = profile_update.website
+    # Update fields
+    if artist_update.bio is not None:
+        artist_profile.bio = artist_update.bio
+    if artist_update.genres is not None:
+        artist_profile.genres = artist_update.genres
+    if artist_update.instruments is not None:
+        artist_profile.instruments = artist_update.instruments
+    if artist_update.location is not None:
+        artist_profile.location = artist_update.location
+    if artist_update.website is not None:
+        artist_profile.website = artist_update.website
     
     db.commit()
     db.refresh(artist_profile)
     
-    return ArtistResponse.model_validate(artist_profile)
+    # Create response with both user and profile info
+    response_data = {
+        "user": user,
+        "bio": artist_profile.bio,
+        "genres": artist_profile.genres,
+        "instruments": artist_profile.instruments,
+        "location": artist_profile.location,
+        "website": artist_profile.website,
+        "created_at": artist_profile.created_at,
+        "updated_at": artist_profile.updated_at,
+    }
+    
+    return ArtistProfileResponse.model_validate(response_data)
 
 
 @router.post("/me/profile-picture", response_model=dict)
 async def upload_profile_picture(
-    profile_picture: UploadFile = File(...),
+    file: UploadFile = File(...),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """
-    Upload artist profile picture.
+    Upload a profile picture for the current artist.
     
     This endpoint allows artists to upload a profile picture.
     """
-    # Validate file type
-    if not profile_picture.content_type.startswith("image/"):
+    # Validate file type (only images)
+    if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file type. Only images are allowed."
+            detail="Invalid file type. Only image files are allowed."
         )
     
     # Validate file size (max 5MB)
-    if profile_picture.size and profile_picture.size > 5 * 1024 * 1024:
+    if file.size and file.size > 5 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File too large. Maximum size is 5MB."
@@ -195,9 +145,12 @@ async def upload_profile_picture(
     user = await _get_authenticated_artist(token, db)
     
     # For now, return a mock URL (in production, you'd upload to S3/cloud storage)
-    profile_picture_url = f"https://example.com/profile-pictures/{user.username}.jpg"
+    profile_picture_url = f"https://example.com/profile_pictures/{user.username}/{file.filename}"
     
-    return {"profile_picture_url": profile_picture_url}
+    # In a real application, you would save the file and update the user's profile with the URL
+    # For now, we just return the mock URL
+    
+    return {"message": "Profile picture uploaded successfully", "url": profile_picture_url}
 
 
 @router.get("/search", response_model=dict)
@@ -229,37 +182,15 @@ async def search_artists(
         # TODO: Implement proper JSON search
         pass
     
-    # Pagination
-    offset = (page - 1) * limit
-    total = query.count()
-    artists = query.offset(offset).limit(limit).all()
-    
-    # Convert to response format
-    artist_list = []
-    for artist in artists:
-        artist_data = {
-            "id": artist.id,
-            "user_id": artist.user_id,
-            "display_name": artist.user.display_name,
-            "username": artist.user.username,
-            "bio": artist.bio,
-            "genres": artist.genres if artist.genres else [],
-            "instruments": artist.instruments if artist.instruments else [],
-            "location": artist.location,
-            "website": artist.website,
-            "created_at": artist.created_at.isoformat(),
-            "updated_at": artist.updated_at.isoformat()
-        }
-        artist_list.append(artist_data)
+    # Apply pagination
+    total_artists = query.count()
+    artists = query.offset((page - 1) * limit).limit(limit).all()
     
     return {
-        "artists": artist_list,
-        "pagination": {
-            "page": page,
-            "limit": limit,
-            "total": total,
-            "pages": (total + limit - 1) // limit
-        }
+        "total": total_artists,
+        "page": page,
+        "limit": limit,
+        "artists": [ArtistResponse.model_validate(artist) for artist in artists]
     }
 
 
@@ -454,8 +385,8 @@ async def send_collaboration_request(
             detail="Collaboration request already sent"
         )
     
-    # Create collaboration request
-    collaboration = Collaboration(
+    # Create new collaboration request
+    new_collaboration = Collaboration(
         requester_id=user.id,
         target_artist_id=collaboration_data.target_artist_id,
         message=collaboration_data.message,
@@ -463,11 +394,11 @@ async def send_collaboration_request(
         status="pending"
     )
     
-    db.add(collaboration)
+    db.add(new_collaboration)
     db.commit()
-    db.refresh(collaboration)
+    db.refresh(new_collaboration)
     
-    return CollaborationResponse.model_validate(collaboration)
+    return CollaborationResponse.model_validate(new_collaboration)
 
 
 @router.get("/collaborations", response_model=dict)
@@ -564,50 +495,3 @@ async def decline_collaboration_request(
     db.refresh(collaboration)
     
     return CollaborationResponse.model_validate(collaboration)
-
-
-# Helper function to get authenticated artist
-async def _get_authenticated_artist(token: str, db: Session) -> User:
-    """Helper function to get the authenticated artist user."""
-    try:
-        # Decode the JWT token to get user information
-        from app.core.security import SECRET_KEY, ALGORITHM
-        from jose import JWTError, jwt
-        
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        
-        if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials"
-            )
-            
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
-    
-    # Find user by username
-    user = db.query(User).filter(User.username == username).first()
-    
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is deactivated"
-        )
-    
-    if user.role != UserRole.artist:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only artists can access this endpoint"
-        )
-    
-    return user
