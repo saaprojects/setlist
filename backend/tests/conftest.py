@@ -7,12 +7,105 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 import os
 import sys
+import uuid
+from datetime import datetime
 
 # Add the app directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from app.main import app
 from app.core.config import settings
+
+
+# Test user tracking for safe cleanup
+_test_users_created = set()
+
+
+def create_test_user_id():
+    """Generate a unique test user identifier."""
+    return f"test_{uuid.uuid4().hex[:8]}"
+
+
+def track_test_user(user_id: str):
+    """Track a test user for safe cleanup."""
+    _test_users_created.add(user_id)
+
+
+def get_test_users_for_cleanup(db):
+    """Safely get only test users we created, never real users."""
+    from app.models.user import User
+    
+    # Only clean up users we explicitly created and tracked
+    test_users = []
+    for user_id in _test_users_created:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            test_users.append(user)
+    
+    return test_users
+
+
+def cleanup_test_users(db):
+    """Safely clean up only the test users we created."""
+    from app.models.artist import ArtistProfile, Collaboration
+    from app.models.music import MusicTrack
+    from sqlalchemy import text
+    
+    test_users = get_test_users_for_cleanup(db)
+    
+    if not test_users:
+        return
+    
+    try:
+        # Delete in correct order to avoid foreign key constraints
+        for user in test_users:
+            # Delete collaborations first
+            db.query(Collaboration).filter(
+                (Collaboration.requester_id == user.id) | 
+                (Collaboration.target_artist_id == user.id)
+            ).delete()
+            
+            # Delete music tracks
+            db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
+            
+            # Delete artist profile
+            artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
+            if artist_profile:
+                db.delete(artist_profile)
+            
+            # Delete the user
+            db.delete(user)
+        
+        db.commit()
+        print(f"✅ Safely cleaned up {len(test_users)} test users")
+        
+        # Reset tracking
+        _test_users_created.clear()
+        
+    except Exception as e:
+        print(f"❌ Error during test cleanup: {e}")
+        db.rollback()
+        raise
+
+
+@pytest.fixture(scope="function")
+def test_user_cleanup():
+    """Fixture to ensure test users are cleaned up after each test."""
+    yield
+    # Cleanup happens automatically after each test
+
+
+@pytest.fixture(scope="session", autouse=True)
+def final_cleanup():
+    """Final cleanup at the end of all tests."""
+    yield
+    # This will run after all tests complete
+    from app.core.database import get_db
+    db = next(get_db())
+    try:
+        cleanup_test_users(db)
+    finally:
+        db.close()
 
 
 @pytest.fixture

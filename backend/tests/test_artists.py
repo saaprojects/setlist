@@ -18,44 +18,8 @@ class TestArtistProfile:
     @classmethod
     def setup_class(cls):
         """Ensure clean database before running tests."""
-        from app.core.database import get_db
-        from app.models.user import User
-        from app.models.artist import ArtistProfile, Collaboration
-        from app.models.music import MusicTrack
-        
-        db = next(get_db())
-        try:
-            # Clean up any existing test data
-            test_users = db.query(User).filter(User.email.like('%@example.com')).all()
-            if test_users:
-                # Delete collaborations first
-                for user in test_users:
-                    db.query(Collaboration).filter(
-                        (Collaboration.requester_id == user.id) | 
-                        (Collaboration.target_artist_id == user.id)
-                    ).delete()
-                
-                # Delete music tracks first
-                for user in test_users:
-                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
-                
-                # Delete artist profiles first
-                for user in test_users:
-                    artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-                    if artist_profile:
-                        db.delete(artist_profile)
-                
-                # Delete users
-                for user in test_users:
-                    db.delete(user)
-                
-                db.commit()
-                print(f"Setup: Cleaned up {len(test_users)} existing test users")
-        except Exception as e:
-            print(f"Setup cleanup error: {e}")
-            db.rollback()
-        finally:
-            db.close()
+        # No aggressive cleanup needed - we use safe tracking now
+        pass
     
     def test_artist_can_view_own_profile(self, client: TestClient, auth_headers):
         """Test that an artist can view their own profile."""
@@ -196,44 +160,8 @@ class TestArtistDiscovery:
     @classmethod
     def setup_class(cls):
         """Ensure clean database before running tests."""
-        from app.core.database import get_db
-        from app.models.user import User
-        from app.models.artist import ArtistProfile, Collaboration
-        from app.models.music import MusicTrack
-        
-        db = next(get_db())
-        try:
-            # Clean up any existing test data
-            test_users = db.query(User).filter(User.email.like('%@example.com')).all()
-            if test_users:
-                # Delete collaborations first
-                for user in test_users:
-                    db.query(Collaboration).filter(
-                        (Collaboration.requester_id == user.id) | 
-                        (Collaboration.target_artist_id == user.id)
-                    ).delete()
-                
-                # Delete music tracks first
-                for user in test_users:
-                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
-                
-                # Delete artist profiles first
-                for user in test_users:
-                    artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-                    if artist_profile:
-                        db.delete(artist_profile)
-                
-                # Delete users
-                for user in test_users:
-                    db.delete(user)
-                
-                db.commit()
-                print(f"Setup: Cleaned up {len(test_users)} existing test users")
-        except Exception as e:
-            print(f"Setup cleanup error: {e}")
-            db.rollback()
-        finally:
-            db.close()
+        # No aggressive cleanup needed - we use safe tracking now
+        pass
     
     def test_users_can_search_artists_by_genre(self, client: TestClient):
         """Test that users can search for artists by genre."""
@@ -289,44 +217,8 @@ class TestArtistCollaboration:
     @classmethod
     def setup_class(cls):
         """Ensure clean database before running tests."""
-        from app.core.database import get_db
-        from app.models.user import User
-        from app.models.artist import ArtistProfile, Collaboration
-        from app.models.music import MusicTrack
-        
-        db = next(get_db())
-        try:
-            # Clean up any existing test data
-            test_users = db.query(User).filter(User.email.like('%@example.com')).all()
-            if test_users:
-                # Delete collaborations first
-                for user in test_users:
-                    db.query(Collaboration).filter(
-                        (Collaboration.requester_id == user.id) | 
-                        (Collaboration.target_artist_id == user.id)
-                    ).delete()
-                
-                # Delete music tracks first
-                for user in test_users:
-                    db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).delete()
-                
-                # Delete artist profiles first
-                for user in test_users:
-                    artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-                    if artist_profile:
-                        db.delete(artist_profile)
-                
-                # Delete users
-                for user in test_users:
-                    db.delete(user)
-                
-                db.commit()
-                print(f"Setup: Cleaned up {len(test_users)} existing test users")
-        except Exception as e:
-            print(f"Setup cleanup error: {e}")
-            db.rollback()
-        finally:
-            db.close()
+        # No aggressive cleanup needed - we use safe tracking now
+        pass
     
     def test_artist_can_send_collaboration_request(self, client: TestClient, auth_headers):
         """Test that an artist can send a collaboration request."""
@@ -419,32 +311,8 @@ class TestArtistMusic:
     @classmethod
     def setup_class(cls):
         """Ensure clean database before running tests."""
-        from app.core.database import get_db
-        from app.models.user import User
-        from app.models.artist import ArtistProfile
-        
-        db = next(get_db())
-        try:
-            # Clean up any existing test data
-            test_users = db.query(User).filter(User.email.like('%@example.com')).all()
-            if test_users:
-                # Delete artist profiles first
-                for user in test_users:
-                    artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-                    if artist_profile:
-                        db.delete(artist_profile)
-                
-                # Delete users
-                for user in test_users:
-                    db.delete(user)
-                
-                db.commit()
-                print(f"Setup: Cleaned up {len(test_users)} existing test users")
-        except Exception as e:
-            print(f"Setup cleanup error: {e}")
-            db.rollback()
-        finally:
-            db.close()
+        # No aggressive cleanup needed - we use safe tracking now
+        pass
     
     def test_artist_can_upload_music_track(self, client: TestClient, auth_headers):
         """Test that an artist can upload a music track."""
@@ -515,18 +383,24 @@ def auth_headers():
     from app.models.user import User, UserRole
     from app.core.database import get_db
     from app.models.artist import ArtistProfile
+    from conftest import track_test_user, create_test_user_id
     
     # Create a test user and artist profile
     db = next(get_db())
     try:
+        # Generate unique test identifiers
+        test_id = create_test_user_id()
+        test_email = f"{test_id}@test.example.com"
+        test_username = f"testartist_{test_id}"
+        
         # Check if test user already exists
-        test_user = db.query(User).filter(User.email == "testartist@example.com").first()
+        test_user = db.query(User).filter(User.email == test_email).first()
         if not test_user:
             from app.core.security import get_password_hash
             
             test_user = User(
-                email="testartist@example.com",
-                username="testartist",
+                email=test_email,
+                username=test_username,
                 password_hash=get_password_hash("testpassword123"),
                 display_name="Test Artist",
                 role=UserRole.artist,
@@ -535,6 +409,9 @@ def auth_headers():
             db.add(test_user)
             db.commit()
             db.refresh(test_user)
+            
+            # Track this user for safe cleanup
+            track_test_user(test_user.id)
             
             # Create artist profile
             artist_profile = ArtistProfile(
@@ -554,35 +431,4 @@ def auth_headers():
         db.close()
 
 
-@pytest.fixture(autouse=True)
-def cleanup_database():
-    """Clean up test data after each test."""
-    yield
-    # Cleanup runs after each test
-    from app.core.database import get_db
-    from app.models.user import User
-    from app.models.artist import ArtistProfile
-    from sqlalchemy import text
-    
-    db = next(get_db())
-    try:
-        # Find and delete test users
-        test_users = db.query(User).filter(User.email.like('%@example.com')).all()
-        if test_users:
-            # Delete artist profiles first (due to foreign key constraints)
-            for user in test_users:
-                artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-                if artist_profile:
-                    db.delete(artist_profile)
-            
-            # Delete users
-            for user in test_users:
-                db.delete(user)
-            
-            db.commit()
-            print(f"Cleaned up {len(test_users)} test users")
-    except Exception as e:
-        print(f"Error during cleanup: {e}")
-        db.rollback()
-    finally:
-        db.close()
+# Cleanup is now handled safely by conftest.py fixtures
