@@ -70,6 +70,60 @@ async def browse_public_tracks(
     }
 
 
+@router.post("/tracks", response_model=MusicTrackResponse, status_code=status.HTTP_201_CREATED)
+async def upload_music_track(
+    title: str = Form(...),
+    description: Optional[str] = Form(None),
+    genre: Optional[str] = Form(None),
+    tags: Optional[List[str]] = Form(None),
+    is_public: bool = Form(True),
+    audio_file: UploadFile = File(...),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a new music track.
+    
+    This endpoint allows artists to upload music tracks.
+    """
+    # Validate file type
+    if not audio_file.content_type.startswith("audio/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only audio files are allowed."
+        )
+    
+    # Validate file size (max 50MB)
+    if audio_file.size and audio_file.size > 50 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File too large. Maximum size is 50MB."
+        )
+    
+    # Get authenticated user
+    user = await get_current_user(token, db)
+    
+    # For now, return a mock URL (in production, you'd upload to S3/cloud storage)
+    audio_url = f"https://example.com/audio/{user.username}/{audio_file.filename}"
+    
+    # Create music track
+    music_track = MusicTrack(
+        artist_id=user.id,
+        title=title,
+        description=description,
+        genre=genre,
+        tags=tags,
+        audio_url=audio_url,
+        is_public=is_public
+    )
+    
+    db.add(music_track)
+    db.commit()
+    db.refresh(music_track)
+    
+    return MusicTrackResponse.model_validate(music_track)
+
+
 # Music Streaming Endpoints
 
 @router.get("/tracks/{track_id}/stream")
@@ -274,3 +328,99 @@ async def create_music_contribution(
     )
     
     return contribution
+
+
+# Music Management Endpoints
+
+@router.get("/tracks/me", response_model=dict)
+async def get_artist_tracks(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current artist's tracks.
+    
+    This endpoint returns all tracks by the currently authenticated artist.
+    """
+    user = await get_current_user(token, db)
+    
+    tracks = db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).all()
+    
+    track_list = [MusicTrackResponse.model_validate(track) for track in tracks]
+    
+    return {"tracks": track_list}
+
+
+@router.put("/tracks/{track_id}", response_model=MusicTrackResponse)
+async def update_music_track(
+    track_id: int,
+    track_update: MusicTrackUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a music track.
+    
+    This endpoint allows artists to update their track information.
+    """
+    user = await get_current_user(token, db)
+    
+    # Find track and verify ownership
+    track = db.query(MusicTrack).filter(
+        MusicTrack.id == track_id,
+        MusicTrack.artist_id == user.id
+    ).first()
+    
+    if not track:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Track not found"
+        )
+    
+    # Update track fields
+    if track_update.title is not None:
+        track.title = track_update.title
+    if track_update.description is not None:
+        track.description = track_update.description
+    if track_update.genre is not None:
+        track.genre = track_update.genre
+    if track_update.tags is not None:
+        track.tags = track_update.tags
+    if track_update.is_public is not None:
+        track.is_public = track_update.is_public
+    
+    db.commit()
+    db.refresh(track)
+    
+    return MusicTrackResponse.model_validate(track)
+
+
+@router.delete("/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_music_track(
+    track_id: int,
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a music track.
+    
+    This endpoint allows artists to delete their tracks.
+    """
+    user = await get_current_user(token, db)
+    
+    # Find track and verify ownership
+    track = db.query(MusicTrack).filter(
+        MusicTrack.id == track_id,
+        MusicTrack.artist_id == user.id
+    ).first()
+    
+    if not track:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Track not found"
+        )
+    
+    db.delete(track)
+    db.commit()
+    
+    return None
