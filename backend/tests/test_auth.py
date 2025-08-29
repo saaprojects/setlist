@@ -97,18 +97,18 @@ class TestUserRegistration:
     def test_registration_validates_password_strength(self, client: TestClient):
         """Test that registration validates password strength."""
         user_data = {
-            "email": "user@example.com",
-            "username": "testuser",
+            "email": "passwordtest@example.com",  # Unique email
+            "username": "passwordtest",
             "password": "weak",  # Too short
-            "display_name": "Test User",
+            "display_name": "Password Test",
             "role": "user"
         }
         
         response = client.post("/api/v1/auth/register", json=user_data)
 
-        assert response.status_code == 400  # Changed from 422 to 400
+        assert response.status_code == 422  # 422 is correct for validation errors
         errors = response.json()["detail"]
-        assert "password" in str(errors)
+        assert "Password" in str(errors)  # Error message is capitalized
     
     def test_registration_validates_role(self, client: TestClient):
         """Test that registration validates user role."""
@@ -221,7 +221,7 @@ class TestUserLogin:
                 "password": user_data["password"]
             }
             
-            response = client.post("/api/v1/auth/login", data=login_data)
+            response = client.post("/api/v1/auth/login", json=login_data)
             
             assert response.status_code == 200
             data = response.json()
@@ -252,7 +252,7 @@ class TestUserLogin:
                 "password": "wrongpassword"
             }
             
-            response = client.post("/api/v1/auth/login", data=login_data)
+            response = client.post("/api/v1/auth/login", json=login_data)
             
             assert response.status_code == 401
             assert "Incorrect username or password" in response.json()["detail"]
@@ -268,10 +268,161 @@ class TestUserLogin:
             "password": "anypassword"
         }
         
-        response = client.post("/api/v1/auth/login", data=login_data)
+        response = client.post("/api/v1/auth/login", json=login_data)
         
         assert response.status_code == 401
         assert "Incorrect username or password" in response.json()["detail"]
+    
+    def _cleanup_test_user(self, email: str):
+        """Clean up test user from database."""
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                db.delete(user)
+                db.commit()
+        except Exception as e:
+            print(f"Warning: Could not clean up test user {email}: {e}")
+        finally:
+            db.close()
+
+
+class TestTokenManagement:
+    """Test JWT token management."""
+    
+    def test_access_token_contains_user_info(self, client: TestClient):
+        """Test that access token contains user information."""
+        # Register and login to get a token
+        user_data = {
+            "email": "tokenuser@example.com",
+            "username": "tokenuser",
+            "password": "securepassword123",
+            "display_name": "Token User",
+            "role": "user"
+        }
+        
+        try:
+            client.post("/api/v1/auth/register", json=user_data)
+            
+            login_data = {
+                "username": user_data["username"],
+                "password": user_data["password"]
+            }
+            login_response = client.post("/api/v1/auth/login", json=login_data)
+            access_token = login_response.json()["access_token"]
+            
+            # Use token to access protected endpoint
+            headers = {"Authorization": f"Bearer {access_token}"}
+            response = client.get("/api/v1/auth/me", headers=headers)
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["email"] == user_data["email"]
+            assert data["username"] == user_data["username"]
+            assert data["role"] == user_data["role"]
+            
+        finally:
+            # Clean up
+            self._cleanup_test_user(user_data["email"])
+    
+    def test_invalid_token_returns_unauthorized(self, client: TestClient):
+        """Test that invalid token returns unauthorized."""
+        headers = {"Authorization": "Bearer invalid-token"}
+        response = client.get("/api/v1/auth/me", headers=headers)
+        
+        assert response.status_code == 401
+        assert "Could not validate credentials" in response.json()["detail"]
+    
+    def test_missing_token_returns_unauthorized(self, client: TestClient):
+        """Test that missing token returns unauthorized."""
+        response = client.get("/api/v1/auth/me")
+        
+        assert response.status_code == 401
+        assert "Not authenticated" in response.json()["detail"]
+    
+    def _cleanup_test_user(self, email: str):
+        """Clean up test user from database."""
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                db.delete(user)
+                db.commit()
+        except Exception as e:
+            print(f"Warning: Could not clean up test user {email}: {e}")
+        finally:
+            db.close()
+
+
+class TestUserLogout:
+    """Test user logout functionality."""
+    
+    def test_user_can_logout(self, client: TestClient):
+        """Test that a user can logout."""
+        # First register and login to get a token
+        user_data = {
+            "email": "logoutuser@example.com",
+            "username": "logoutuser",
+            "password": "securepassword123",
+            "display_name": "Logout User",
+            "role": "user"
+        }
+        
+        try:
+            client.post("/api/v1/auth/register", json=user_data)
+            
+            login_data = {
+                "username": user_data["username"],
+                "password": user_data["password"]
+            }
+            login_response = client.post("/api/v1/auth/login", json=login_data)
+            access_token = login_response.json()["access_token"]
+            
+            # Then logout
+            headers = {"Authorization": f"Bearer {access_token}"}
+            response = client.post("/api/v1/auth/logout", headers=headers)
+            
+            assert response.status_code == 200
+            assert "Successfully logged out" in response.json()["message"]
+            
+        finally:
+            # Clean up
+            self._cleanup_test_user(user_data["email"])
+    
+    def test_logout_returns_success_message(self, client: TestClient):
+        """Test that logout returns a success message."""
+        # First register and login to get a token
+        user_data = {
+            "email": "logoutuser@example.com",
+            "username": "logoutuser",
+            "password": "securepassword123",
+            "display_name": "Logout User",
+            "role": "user"
+        }
+        
+        try:
+            client.post("/api/v1/auth/register", json=user_data)
+            
+            login_data = {
+                "username": user_data["username"],
+                "password": user_data["password"]
+            }
+            login_response = client.post("/api/v1/auth/login", json=login_data)
+            access_token = login_response.json()["access_token"]
+            
+            # Logout
+            headers = {"Authorization": f"Bearer {access_token}"}
+            response = client.post("/api/v1/auth/logout", headers=headers)
+            
+            assert response.status_code == 200
+            assert "Successfully logged out" in response.json()["message"]
+            
+            # Note: In the current simple implementation, tokens are not actually invalidated
+            # This would require a token blacklist system which is beyond the current scope
+            
+        finally:
+            # Clean up
+            self._cleanup_test_user(user_data["email"])
     
     def _cleanup_test_user(self, email: str):
         """Clean up test user from database."""

@@ -7,9 +7,11 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from typing import Optional
+from jose import JWTError, jwt
 
 from app.core.database import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token
+
 from app.models.user import User, UserRole
 
 router = APIRouter()
@@ -42,8 +44,7 @@ class UserResponse(BaseModel):
     role: str
     is_active: bool
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class Token(BaseModel):
@@ -171,18 +172,46 @@ async def get_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     """
     Get current authenticated user information.
     
     This endpoint returns the profile of the currently authenticated user.
     """
-    # TODO: Implement current user retrieval
-    # This is a placeholder - we'll implement after writing tests
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Current user retrieval not yet implemented"
-    )
+    try:
+        # Decode the JWT token to get user information
+        from app.core.security import SECRET_KEY, ALGORITHM
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
+            )
+            
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+    
+    # Find user by username
+    user = db.query(User).filter(User.username == username).first()
+    
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account is deactivated"
+        )
+    
+    return UserResponse.model_validate(user)
 
 
 @router.post("/logout")
@@ -192,9 +221,28 @@ async def logout_user(token: str = Depends(oauth2_scheme)):
     
     This endpoint invalidates the current user's access token.
     """
-    # TODO: Implement user logout logic
-    # This is a placeholder - we'll implement after writing tests
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="User logout not yet implemented"
-    )
+    try:
+        # Decode the JWT token to get user information
+        from app.core.security import SECRET_KEY, ALGORITHM
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
+            )
+            
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
+    
+    # For now, we'll just return a success message
+    # In a production system, you'd want to:
+    # 1. Add the token to a blacklist/revoked tokens table
+    # 2. Set up a background job to clean up expired tokens
+    # 3. Check the blacklist in the /me endpoint
+    
+    return {"message": "Successfully logged out"}
