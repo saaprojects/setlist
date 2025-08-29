@@ -5,27 +5,74 @@ Following TDD: Red-Green-Refactor cycle.
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from passlib.context import CryptContext
 
 from app.main import app
 from app.core.security import create_access_token, verify_password
+from app.models.user import User, UserRole
 
 
 class TestUserRegistration:
     """Test user registration functionality."""
     
-    def test_user_can_register_with_valid_data(self, client: TestClient):
+    @pytest.fixture
+    def mock_db(self):
+        """Mock database session."""
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.first.return_value = None  # No existing users
+        mock_db.add.return_value = None
+        mock_db.commit.return_value = None
+        mock_db.refresh.return_value = None
+        return mock_db
+    
+    @patch('app.api.v1.endpoints.auth.get_db')
+    @patch('app.api.v1.endpoints.auth.get_password_hash')
+    @patch('app.api.v1.endpoints.auth.create_access_token')
+    def test_user_can_register_with_valid_data(self, mock_create_token, mock_hash_password, mock_get_db, client: TestClient, mock_db):
         """Test that a user can register with valid data."""
-        user_data = {
-            "email": "user@example.com",
-            "username": "testuser",
-            "password": "securepassword123",
-            "display_name": "Test User",
-            "role": "user"
-        }
+        # Setup mocks
+        mock_get_db.return_value = mock_db
         
-        response = client.post("/api/v1/auth/register", json=user_data)
+        # Mock the database query chain to return no existing users
+        mock_query = MagicMock()
+        mock_filter = MagicMock()
+        mock_filter.first.return_value = None  # No existing users
+        
+        mock_db.query.return_value = mock_query
+        mock_query.filter.return_value = mock_filter
+        
+        # Mock database operations
+        mock_db.add.return_value = None
+        mock_db.commit.return_value = None
+        mock_db.refresh.return_value = None
+        
+        # Mock security functions
+        mock_hash_password.return_value = "hashed_password_123"
+        mock_create_token.return_value = "mock_access_token_123"
+        
+        # Mock the User model creation
+        mock_user = MagicMock()
+        mock_user.id = 1
+        mock_user.email = "user@example.com"
+        mock_user.username = "testuser"
+        mock_user.display_name = "Test User"
+        mock_user.role = UserRole.user
+        mock_user.is_active = True
+        
+        # Mock the User class constructor
+        with patch('app.api.v1.endpoints.auth.User') as mock_user_class:
+            mock_user_class.return_value = mock_user
+            
+            user_data = {
+                "email": "user@example.com",
+                "username": "testuser",
+                "password": "securepassword123",
+                "display_name": "Test User",
+                "role": "user"
+            }
+            
+            response = client.post("/api/v1/auth/register", json=user_data)
         
         assert response.status_code == 201
         data = response.json()
