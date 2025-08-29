@@ -16,7 +16,7 @@ services:
       - BACKEND_RELOAD=true
       - BACKEND_LOG_LEVEL=info
     env_file:
-      - env.example
+      - .env
     depends_on:
       - postgres
     networks:
@@ -36,7 +36,7 @@ services:
       - FRONTEND_PORT=3000
       - FRONTEND_HOST=0.0.0.0
     env_file:
-      - env.example
+      - .env
     networks:
       - setlist-network
 
