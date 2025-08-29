@@ -91,24 +91,103 @@ class TestArtistProfile:
     def test_artist_can_upload_profile_picture(self, client: TestClient, auth_headers):
         """Test that an artist can upload a profile picture."""
         # Create a mock image file
-        files = {"profile_picture": ("test.jpg", b"fake-image-data", "image/jpeg")}
+        files = {"file": ("test.jpg", b"fake-image-data", "image/jpeg")}
         
         response = client.post("/api/v1/artists/me/profile-picture", files=files, headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
-        assert "profile_picture_url" in data
-        assert data["profile_picture_url"].startswith("http")
+        assert "filename" in data
+        assert "content_type" in data
+        assert "size_bytes" in data
+        assert data["filename"] == "test.jpg"
+        assert data["content_type"] == "image/jpeg"
+        assert data["size_bytes"] == len(b"fake-image-data")
     
     def test_artist_profile_picture_validates_file_type(self, client: TestClient, auth_headers):
         """Test that profile picture upload validates file type."""
         # Try to upload a non-image file
-        files = {"profile_picture": ("test.txt", b"not-an-image", "text/plain")}
+        files = {"file": ("test.txt", b"not-an-image", "text/plain")}
         
         response = client.post("/api/v1/artists/me/profile-picture", files=files, headers=auth_headers)
         
         assert response.status_code == 400
         assert "Invalid file type" in response.json()["detail"]
+
+    def test_artist_can_retrieve_profile_picture(self, client: TestClient, auth_headers):
+        """Test that an artist can retrieve their uploaded profile picture."""
+        # First upload a profile picture
+        files = {"file": ("test.jpg", b"fake-image-data", "image/jpeg")}
+        upload_response = client.post("/api/v1/artists/me/profile-picture", files=files, headers=auth_headers)
+        assert upload_response.status_code == 200
+        
+        # Get the user ID from the auth token (we'll need to extract this)
+        # For now, let's test with a known user ID from the setup
+        from app.core.database import get_db
+        from app.models.user import User
+        
+        db = next(get_db())
+        try:
+            user = db.query(User).filter(User.email == "testartist@example.com").first()
+            user_id = user.id
+            
+            # Now retrieve the profile picture
+            response = client.get(f"/api/v1/artists/profile-picture/{user_id}")
+            
+            assert response.status_code == 200
+            assert response.content == b"fake-image-data"
+            assert response.headers["content-type"] == "image/jpeg"
+            assert "cache-control" in response.headers
+        finally:
+            db.close()
+
+    def test_artist_can_upload_real_profile_picture(self, client: TestClient, auth_headers):
+        """Test that an artist can upload a real profile picture (the Alerrian icon)."""
+        # Read the actual image file from the container
+        import os
+        image_path = "/tmp/alerrian-icon.jpg"
+        
+        if os.path.exists(image_path):
+            with open(image_path, "rb") as f:
+                image_data = f.read()
+            
+            # Create a mock file upload with real image data
+            files = {"file": ("alerrian-icon.jpg", image_data, "image/jpeg")}
+            
+            response = client.post("/api/v1/artists/me/profile-picture", files=files, headers=auth_headers)
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert "filename" in data
+            assert "content_type" in data
+            assert "size_bytes" in data
+            assert data["filename"] == "alerrian-icon.jpg"
+            assert data["content_type"] == "image/jpeg"
+            assert data["size_bytes"] == len(image_data)
+            
+            # Now test retrieval
+            from app.core.database import get_db
+            from app.models.user import User
+            
+            db = next(get_db())
+            try:
+                user = db.query(User).filter(User.email == "testartist@example.com").first()
+                user_id = user.id
+                
+                # Retrieve the profile picture
+                retrieve_response = client.get(f"/api/v1/artists/profile-picture/{user_id}")
+                
+                assert retrieve_response.status_code == 200
+                assert retrieve_response.content == image_data
+                assert retrieve_response.headers["content-type"] == "image/jpeg"
+                assert "cache-control" in retrieve_response.headers
+                
+                print(f"✅ Successfully uploaded and retrieved real image: {data['filename']} ({data['size_bytes']} bytes)")
+                
+            finally:
+                db.close()
+        else:
+            pytest.skip("Real image file not available for testing")
 
 
 class TestArtistDiscovery:

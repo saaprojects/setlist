@@ -2,7 +2,7 @@
 Artist database models.
 """
 
-from sqlalchemy import Column, String, Integer, Text, ForeignKey, JSON, Boolean
+from sqlalchemy import Column, String, Integer, Text, ForeignKey, JSON, Boolean, LargeBinary
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -22,6 +22,10 @@ class ArtistProfile(BaseModel):
     instruments = Column(JSON, nullable=True)  # JSON array for instruments
     location = Column(String(255), nullable=True)
     website = Column(String(255), nullable=True)
+    
+    # Profile picture as binary data
+    profile_picture_binary = Column(LargeBinary, nullable=True)
+    profile_picture_content_type = Column(String(100), nullable=True)  # e.g., "image/jpeg"
     
     # Relationships
     user = relationship("User", back_populates="artist_profile")

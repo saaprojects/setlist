@@ -4,6 +4,7 @@ Artist-specific endpoints for the Setlist application.
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
@@ -144,13 +145,58 @@ async def upload_profile_picture(
     
     user = await _get_authenticated_artist(token, db)
     
-    # For now, return a mock URL (in production, you'd upload to S3/cloud storage)
-    profile_picture_url = f"https://example.com/profile_pictures/{user.username}/{file.filename}"
+    # Get artist profile
+    artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
     
-    # In a real application, you would save the file and update the user's profile with the URL
-    # For now, we just return the mock URL
+    if not artist_profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Artist profile not found"
+        )
     
-    return {"message": "Profile picture uploaded successfully", "url": profile_picture_url}
+    # Read file content
+    file_content = await file.read()
+    
+    # Store binary data and content type in database
+    artist_profile.profile_picture_binary = file_content
+    artist_profile.profile_picture_content_type = file.content_type
+    
+    db.commit()
+    db.refresh(artist_profile)
+    
+    return {
+        "message": "Profile picture uploaded successfully",
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size_bytes": len(file_content)
+    }
+
+
+@router.get("/profile-picture/{user_id}")
+async def get_profile_picture(user_id: int, db: Session = Depends(get_db)):
+    """
+    Get a user's profile picture.
+    
+    This endpoint returns the profile picture binary data with proper content type headers.
+    """
+    # Get artist profile
+    artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user_id).first()
+    
+    if not artist_profile or not artist_profile.profile_picture_binary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Profile picture not found"
+        )
+    
+    # Return the binary data with proper content type
+    return Response(
+        content=artist_profile.profile_picture_binary,
+        media_type=artist_profile.profile_picture_content_type,
+        headers={
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+            "Content-Disposition": f"inline; filename=profile_picture_{user_id}"
+        }
+    )
 
 
 @router.get("/search", response_model=dict)
@@ -186,11 +232,17 @@ async def search_artists(
     total_artists = query.count()
     artists = query.offset((page - 1) * limit).limit(limit).all()
     
+    # Calculate pagination info
+    total_pages = (total_artists + limit - 1) // limit
+    
     return {
-        "total": total_artists,
-        "page": page,
-        "limit": limit,
-        "artists": [ArtistResponse.model_validate(artist) for artist in artists]
+        "artists": [ArtistResponse.model_validate(artist) for artist in artists],
+        "pagination": {
+            "page": page,
+            "limit": limit,
+            "total": total_artists,
+            "pages": total_pages
+        }
     }
 
 
