@@ -2,14 +2,14 @@
 Artist Pydantic schemas.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 from datetime import datetime
 
 
 class ArtistCreate(BaseModel):
     """Artist creation schema."""
-    email: str
+    email: EmailStr
     username: str
     password: str
     display_name: str
@@ -27,6 +27,20 @@ class ArtistUpdate(BaseModel):
     website: Optional[str] = None
 
 
+class UserResponse(BaseModel):
+    """User response schema for artist registration."""
+    id: int
+    email: EmailStr
+    username: str
+    display_name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    
+    model_config = {"from_attributes": True}
+
+
 class ArtistResponse(BaseModel):
     """Artist response schema."""
     id: int
@@ -40,3 +54,11 @@ class ArtistResponse(BaseModel):
     updated_at: datetime
     
     model_config = {"from_attributes": True}
+
+
+class ArtistRegistrationResponse(BaseModel):
+    """Artist registration response schema."""
+    user: UserResponse
+    artist_profile: ArtistResponse
+    access_token: str
+    refresh_token: str

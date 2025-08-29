@@ -2,7 +2,7 @@
 Artist database models.
 """
 
-from sqlalchemy import Column, String, Integer, Text, ForeignKey
+from sqlalchemy import Column, String, Integer, Text, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -18,8 +18,8 @@ class ArtistProfile(BaseModel):
     
     # Profile information
     bio = Column(Text, nullable=True)
-    genres = Column(Text, nullable=True)  # JSON string for now
-    instruments = Column(Text, nullable=True)  # JSON string for now
+    genres = Column(JSON, nullable=True)  # JSON array for genres
+    instruments = Column(JSON, nullable=True)  # JSON array for instruments
     location = Column(String(255), nullable=True)
     website = Column(String(255), nullable=True)
     
