@@ -86,7 +86,7 @@ We follow **Test Driven Development (TDD)** with the Red-Green-Refactor cycle:
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+
 - Node.js 18+
 - Docker & Docker Compose
 - Supabase account
