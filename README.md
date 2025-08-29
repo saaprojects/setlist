@@ -9,6 +9,7 @@ Setlist is designed to be a mobile-friendly web app that will eventually become 
 ## User Types & Features
 
 ### Artists/DJs/Bands
+
 - Basic profile information
 - Upload demos and music
 - Stream music from the app
@@ -16,11 +17,13 @@ Setlist is designed to be a mobile-friendly web app that will eventually become 
 - Collaborate with other artists
 
 ### Promoters/Venues
+
 - Find bands by genre for shows
 - Secure in-app communication with bands
 - Create show bills and export for social media
 
 ### Regular Users
+
 - Discover shows and bands
 - Find local music
 - Create playlists from app music
@@ -29,13 +32,15 @@ Setlist is designed to be a mobile-friendly web app that will eventually become 
 ## Tech Stack
 
 ### Backend
-- **Python 3.11+** with comprehensive typing
+
+- **Python 3.13+** with comprehensive typing
 - **FastAPI** for minimal, fast API development
 - **Pydantic** for data validation
 - **SQLAlchemy** for database operations
 - **Alembic** for database migrations
 
 ### Frontend
+
 - **React 18** with TypeScript
 - **Vite** for fast development
 - **Tailwind CSS** for styling
@@ -43,17 +48,18 @@ Setlist is designed to be a mobile-friendly web app that will eventually become 
 - **React Router** for navigation
 
 ### Database
+
 - **Supabase** (PostgreSQL)
 - **Row Level Security** for data protection
 
 ### Testing
+
 - **pytest** for backend testing
 - **Jest + React Testing Library** for frontend testing
-- **Test Driven Development** approach
 
 ## Project Structure
 
-```
+```md
 setlist/
 ├── backend/                 # FastAPI backend
 │   ├── app/
@@ -71,6 +77,7 @@ setlist/
 ## Development Approach
 
 We follow **Test Driven Development (TDD)** with the Red-Green-Refactor cycle:
+
 1. **Red**: Write failing tests first
 2. **Green**: Write minimal code to pass tests
 3. **Refactor**: Clean up and optimize code
@@ -78,33 +85,36 @@ We follow **Test Driven Development (TDD)** with the Red-Green-Refactor cycle:
 ## Getting Started
 
 ### Prerequisites
+
 - Python 3.11+
 - Node.js 18+
 - Docker & Docker Compose
 - Supabase account
 
 ### Quick Start
+
 1. Clone the repository
 2. Copy `.env.example` to `.env` and fill in your Supabase credentials
 3. Run `docker-compose up` to start the development environment
 4. Backend will be available at `http://localhost:8000`
 5. Frontend will be available at `http://localhost:3000`
 
-## Testing
-
 ### Backend Tests
+
 ```bash
 cd backend
 pytest
 ```
 
 ### Frontend Tests
+
 ```bash
 cd frontend
 npm test
 ```
 
 ### Run All Tests
+
 ```bash
 npm run test:all
 ```
