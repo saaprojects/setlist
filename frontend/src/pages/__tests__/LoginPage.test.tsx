@@ -11,7 +11,7 @@ const mockUseAuth = {
   isLoading: false,
   login: jest.fn(),
   error: null,
-  loginError: null,
+  loginError: null as string | null,
 }
 
 jest.mock('@/hooks/useAuth', () => ({

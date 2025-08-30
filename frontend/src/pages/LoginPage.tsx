@@ -64,6 +64,8 @@ export const LoginPage: React.FC = () => {
     validateForm()
   }
 
+
+
   const displayErrors = formErrors
 
   return (
@@ -120,11 +122,11 @@ export const LoginPage: React.FC = () => {
               </div>
 
               {/* Error Message from Auth Hook */}
-              {loginError && (
+              {loginError ? (
                 <div className="text-sm text-red-600 text-center">
                   {String(loginError)}
                 </div>
-              )}
+              ) : null}
 
               {/* Submit Button */}
               <button
