@@ -45,6 +45,40 @@ export const useAuth = () => {
     }
   )
 
+  // Update auth state when query state changes
+  useEffect(() => {
+    if (localStorage.getItem('access_token')) {
+      if (isCheckingAuth) {
+        // Still checking authentication
+        setAuthState(prev => ({
+          ...prev,
+          isLoading: true,
+        }))
+      } else if (_user) {
+        // User is authenticated
+        setAuthState({
+          user: _user,
+          isAuthenticated: true,
+          isLoading: false,
+        })
+      } else {
+        // Token exists but user data failed to load
+        setAuthState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        })
+      }
+    } else {
+      // No token, user is not authenticated
+      setAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      })
+    }
+  }, [_user, isCheckingAuth])
+
   // Login mutation
   const loginMutation = useMutation(authApi.login, {
     onSuccess: (authResponse) => {
