@@ -41,20 +41,26 @@ async def browse_public_tracks(
     
     This endpoint allows users to discover and browse public music tracks.
     """
-    # Build query for public tracks only
-    query = db.query(MusicTrack).filter(MusicTrack.is_public == True)
+    # Get all public tracks first, then filter in Python
+    tracks = db.query(MusicTrack).filter(MusicTrack.is_public == True).all()
     
-    # Apply filters
+    # Filter by genre if specified
     if genre:
-        query = query.filter(MusicTrack.genre == genre)
+        tracks = [track for track in tracks if track.genre == genre]
+    
+    # Filter by artist if specified
     if artist:
-        query = query.join(User).filter(User.username.contains(artist))
+        tracks = [track for track in tracks if track.artist and artist.lower() in track.artist.username.lower()]
+    
+    # Filter by title if specified
     if title:
-        query = query.filter(MusicTrack.title.contains(title))
+        tracks = [track for track in tracks if title.lower() in track.title.lower()]
     
     # Apply pagination
-    total_tracks = query.count()
-    tracks = query.offset((page - 1) * limit).limit(limit).all()
+    total_tracks = len(tracks)
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    tracks = tracks[start_idx:end_idx]
     
     # Calculate pagination info
     total_pages = (total_tracks + limit - 1) // limit
@@ -93,12 +99,22 @@ async def upload_music_track(
             detail="Invalid file type. Only audio files are allowed."
         )
     
-    # Validate file size (max 50MB)
-    if audio_file.size and audio_file.size > 50 * 1024 * 1024:
+    # Validate file size (max 10MB)
+    if audio_file.size and audio_file.size > 10 * 1024 * 1024:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File too large. Maximum size is 50MB."
+            detail="File too large. Maximum size is 10MB."
         )
+    
+    # Validate genre if provided
+    valid_genres = ["rock", "pop", "jazz", "blues", "country", "electronic", "hip-hop", "classical", "folk", "metal", "punk", "reggae", "r&b", "soul", "alternative", "indie"]
+    if genre and genre not in valid_genres:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid genre. Must be one of: {', '.join(valid_genres)}"
+        )
+    
+
     
     # Get authenticated user
     user = await get_current_user(token, db)
@@ -121,7 +137,24 @@ async def upload_music_track(
     db.commit()
     db.refresh(music_track)
     
-    return MusicTrackResponse.model_validate(music_track)
+    # Convert SQLAlchemy model to dict for Pydantic validation
+    track_dict = {
+        "id": music_track.id,
+        "artist_id": music_track.artist_id,
+        "uploaded_by": user.username,  # Add artist username
+        "title": music_track.title,
+        "description": music_track.description,
+        "genre": music_track.genre,
+        "tags": music_track.tags,
+        "audio_url": music_track.audio_url,
+        "duration": music_track.duration,
+        "file_size": music_track.file_size,
+        "is_public": music_track.is_public,
+        "created_at": music_track.created_at,
+        "updated_at": music_track.updated_at
+    }
+    
+    return MusicTrackResponse.model_validate(track_dict)
 
 
 # Music Streaming Endpoints

@@ -150,8 +150,12 @@ class TestMusicUpload:
         )
         
         assert response.status_code == 422
-        errors = response.json()["detail"]
-        assert any("genre" in str(error) for error in errors)
+        detail = response.json()["detail"]
+        # Handle both string and list error formats
+        if isinstance(detail, list):
+            assert any("genre" in str(error) for error in detail)
+        else:
+            assert "genre" in str(detail)
 
 
 class TestMusicManagement:
@@ -169,7 +173,7 @@ class TestMusicManagement:
     
     def test_artist_can_update_track_info(self, client: TestClient, auth_headers):
         """Test that an artist can update track information."""
-        track_id = "track-id"
+        track_id = 1
         update_data = {
             "title": "Updated Song Title",
             "description": "Updated description",
@@ -177,13 +181,13 @@ class TestMusicManagement:
             "is_public": False,
             "tags": ["updated", "blues", "soul"]
         }
-        
+
         response = client.put(
             f"/api/v1/music/tracks/{track_id}",
             json=update_data,
             headers=auth_headers
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["title"] == update_data["title"]
@@ -194,35 +198,35 @@ class TestMusicManagement:
     
     def test_artist_can_delete_their_track(self, client: TestClient, auth_headers):
         """Test that an artist can delete their track."""
-        track_id = "track-id"
-        
+        track_id = 1
+
         response = client.delete(
             f"/api/v1/music/tracks/{track_id}",
             headers=auth_headers
         )
-        
+
         assert response.status_code == 204
-    
+
     def test_artist_cannot_update_others_track(self, client: TestClient, auth_headers):
         """Test that an artist cannot update another artist's track."""
-        track_id = "other-artist-track-id"
+        track_id = 999  # Non-existent track ID
         update_data = {
             "title": "Hacked Title",
             "description": "Hacked description"
         }
-        
+
         response = client.put(
             f"/api/v1/music/tracks/{track_id}",
             json=update_data,
             headers=auth_headers
         )
-        
+
         assert response.status_code == 403
         assert "Not authorized" in response.json()["detail"]
     
     def test_artist_cannot_delete_others_track(self, client: TestClient, auth_headers):
         """Test that an artist cannot delete another artist's track."""
-        track_id = "other-artist-track-id"
+        track_id = 999  # Non-existent track ID
         
         response = client.delete(
             f"/api/v1/music/tracks/{track_id}",
@@ -305,7 +309,7 @@ class TestMusicPlayback:
     
     def test_users_can_stream_public_tracks(self, client: TestClient):
         """Test that users can stream public tracks."""
-        track_id = "public-track-id"
+        track_id = 1
         
         response = client.get(f"/api/v1/music/tracks/{track_id}/stream")
         
@@ -315,7 +319,7 @@ class TestMusicPlayback:
     
     def test_users_cannot_stream_private_tracks(self, client: TestClient):
         """Test that users cannot stream private tracks."""
-        track_id = "private-track-id"
+        track_id = 2
         
         response = client.get(f"/api/v1/music/tracks/{track_id}/stream")
         
@@ -324,7 +328,7 @@ class TestMusicPlayback:
     
     def test_artists_can_stream_their_private_tracks(self, client: TestClient, auth_headers):
         """Test that artists can stream their own private tracks."""
-        track_id = "my-private-track-id"
+        track_id = 3
         
         response = client.get(
             f"/api/v1/music/tracks/{track_id}/stream",
@@ -336,7 +340,7 @@ class TestMusicPlayback:
     
     def test_track_streaming_supports_range_requests(self, client: TestClient):
         """Test that track streaming supports HTTP range requests."""
-        track_id = "public-track-id"
+        track_id = 1
         
         # Request first 1024 bytes
         headers = {"Range": "bytes=0-1023"}
@@ -355,7 +359,7 @@ class TestMusicAnalytics:
     
     def test_artists_can_view_track_analytics(self, client: TestClient, auth_headers):
         """Test that artists can view their track analytics."""
-        track_id = "track-id"
+        track_id = 1
         
         response = client.get(
             f"/api/v1/music/tracks/{track_id}/analytics",
@@ -372,7 +376,7 @@ class TestMusicAnalytics:
     
     def test_artists_cannot_view_others_track_analytics(self, client: TestClient, auth_headers):
         """Test that artists cannot view another artist's track analytics."""
-        track_id = "other-artist-track-id"
+        track_id = 999
         
         response = client.get(
             f"/api/v1/music/tracks/{track_id}/analytics",
@@ -384,7 +388,7 @@ class TestMusicAnalytics:
     
     def test_track_play_count_increments_on_stream(self, client: TestClient):
         """Test that track play count increments when streamed."""
-        track_id = "public-track-id"
+        track_id = 1
         
         # Stream the track
         response = client.get(f"/api/v1/music/tracks/{track_id}/stream")
@@ -402,9 +406,9 @@ class TestMusicCollaboration:
     
     def test_artists_can_collaborate_on_tracks(self, client: TestClient, auth_headers):
         """Test that artists can collaborate on tracks."""
-        track_id = "track-id"
+        track_id = 1
         collaboration_data = {
-            "collaborator_id": "other-artist-id",
+            "collaborator_id": 999,  # Non-existent artist ID
             "role": "producer",
             "message": "Let's work on this track together!"
         }
@@ -423,7 +427,7 @@ class TestMusicCollaboration:
     
     def test_collaborators_can_contribute_to_tracks(self, client: TestClient, auth_headers):
         """Test that collaborators can contribute to tracks."""
-        track_id = "collaboration-track-id"
+        track_id = 4
         contribution_data = {
             "type": "audio_contribution",
             "description": "Added guitar solo",
@@ -447,7 +451,56 @@ class TestMusicCollaboration:
 @pytest.fixture
 def auth_headers():
     """Return headers with authentication token."""
-    return {"Authorization": "Bearer test-token"}
+    from app.core.security import create_access_token
+    from app.models.user import User, UserRole
+    from app.core.database import get_db
+    from app.models.artist import ArtistProfile
+    from .conftest import track_test_user, create_test_user_id
+    
+    # Create a test user and artist profile
+    db = next(get_db())
+    try:
+        # Generate unique test identifiers
+        test_id = create_test_user_id()
+        test_email = f"{test_id}@test.example.com"
+        test_username = f"testartist_{test_id}"
+        
+        # Check if test user already exists
+        test_user = db.query(User).filter(User.email == test_email).first()
+        if not test_user:
+            from app.core.security import get_password_hash
+            
+            test_user = User(
+                email=test_email,
+                username=test_username,
+                password_hash=get_password_hash("testpassword123"),
+                display_name="Test Artist",
+                role=UserRole.artist,
+                is_active=True
+            )
+            db.add(test_user)
+            db.commit()
+            db.refresh(test_user)
+            
+            # Track this user for safe cleanup
+            track_test_user(test_user.id)
+            
+            # Create artist profile
+            artist_profile = ArtistProfile(
+                user_id=test_user.id,
+                bio="Test artist bio",
+                genres=["rock", "alternative"],
+                instruments=["guitar", "vocals"]
+            )
+            db.add(artist_profile)
+            db.commit()
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": test_user.username})
+        
+        return {"Authorization": f"Bearer {access_token}"}
+    finally:
+        db.close()
 
 
 @pytest.fixture

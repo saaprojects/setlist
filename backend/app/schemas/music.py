@@ -11,7 +11,7 @@ class MusicTrackCreate(BaseModel):
     """Schema for creating a music track."""
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
-    genre: Optional[str] = Field(None, max_length=100)
+    genre: Optional[str] = Field(None, max_length=100, pattern="^(rock|pop|jazz|blues|country|electronic|hip-hop|classical|folk|metal|punk|reggae|r&b|soul|alternative|indie)$")
     tags: Optional[List[str]] = Field(None, max_length=10)
     is_public: bool = Field(True)
 
@@ -29,6 +29,7 @@ class MusicTrackResponse(BaseModel):
     """Schema for music track responses."""
     id: int
     artist_id: int
+    uploaded_by: str  # Artist username
     title: str
     description: Optional[str] = None
     genre: Optional[str] = None

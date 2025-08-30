@@ -31,12 +31,12 @@ class TestUserRegistration:
     def _cleanup_test_users(cls, db: Session):
         """Clean up test users from the database."""
         # Use safe cleanup system from conftest.py
-        from conftest import cleanup_test_users
+        from .conftest import cleanup_test_users
         cleanup_test_users(db)
 
     def test_user_can_register_with_basic_info(self, client: TestClient):
         """Test that a user can register with basic information."""
-        from conftest import create_test_user_id, track_test_user
+        from .conftest import create_test_user_id, track_test_user
         
         test_id = create_test_user_id()
         user_data = {
@@ -69,7 +69,7 @@ class TestUserRegistration:
 
     def test_artist_can_register_with_artist_role(self, client: TestClient):
         """Test that an artist can register with artist role through the general auth endpoint."""
-        from conftest import create_test_user_id, track_test_user
+        from .conftest import create_test_user_id, track_test_user
         
         test_id = create_test_user_id()
         artist_data = {
@@ -113,7 +113,7 @@ class TestUserRegistration:
 
     def test_user_registration_validates_password_strength(self, client: TestClient):
         """Test that user registration validates password strength."""
-        from conftest import create_test_user_id
+        from .conftest import create_test_user_id
         
         test_id = create_test_user_id()
         weak_password_data = {
@@ -131,7 +131,7 @@ class TestUserRegistration:
 
     def test_user_registration_prevents_duplicate_email(self, client: TestClient):
         """Test that user registration prevents duplicate emails."""
-        from conftest import create_test_user_id, track_test_user
+        from .conftest import create_test_user_id, track_test_user
         
         test_id = create_test_user_id()
         user_data = {
@@ -163,7 +163,7 @@ class TestUserRegistration:
 
     def test_user_registration_prevents_duplicate_username(self, client: TestClient):
         """Test that user registration prevents duplicate usernames."""
-        from conftest import create_test_user_id, track_test_user
+        from .conftest import create_test_user_id, track_test_user
         
         test_id = create_test_user_id()
         user_data1 = {
@@ -219,74 +219,50 @@ class TestUserLogin:
     @classmethod
     def _cleanup_test_users(cls, db: Session):
         """Clean up test users from the database."""
-        # Delete test users (identified by @example.com emails)
-        test_users = db.query(User).filter(User.email.like("%@example.com")).all()
-        for user in test_users:
-            # Delete related records first (in correct order)
-            # Delete collaborations where user is requester or target
-            collaborations = db.query(Collaboration).filter(
-                (Collaboration.requester_id == user.id) | (Collaboration.target_artist_id == user.id)
-            ).all()
-            for collab in collaborations:
-                db.delete(collab)
-            
-            # Delete music tracks by user
-            music_tracks = db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).all()
-            for track in music_tracks:
-                db.delete(track)
-            
-            # Delete associated artist profile if it exists
-            artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-            if artist_profile:
-                db.delete(artist_profile)
-            
-            # Finally delete the user
-            db.delete(user)
-        
-        db.commit()
-        
-        # Reset sequences
-        db.execute(text("SELECT setval('users_id_seq', 1, false)"))
-        db.execute(text("SELECT setval('artist_profiles_id_seq', 1, false)"))
-        db.execute(text("SELECT setval('music_tracks_id_seq', 1, false)"))
-        db.execute(text("SELECT setval('collaborations_id_seq', 1, false)"))
-        db.commit()
+        # Use safe cleanup system from conftest.py
+        from .conftest import cleanup_test_users
+        cleanup_test_users(db)
 
     def test_user_can_login_with_valid_credentials(self, client: TestClient):
         """Test that a user can login with valid credentials."""
+        from .conftest import create_test_user_id, track_test_user
+        
         # First register a user
+        test_id = create_test_user_id()
         user_data = {
-            "email": "logintest@example.com",
-            "username": "logintest",
+            "email": f"logintest_{test_id}@test.example.com",
+            "username": f"logintest_{test_id}",
             "password": "securepassword123",
             "display_name": "Login Test User",
             "role": "user"
         }
 
-        try:
-            # Register user
-            register_response = client.post("/api/v1/auth/register", json=user_data)
-            assert register_response.status_code == 201
+        # Register user
+        register_response = client.post("/api/v1/auth/register", json=user_data)
+        assert register_response.status_code == 201
 
-            # Login with valid credentials
-            login_data = {
-                "username": "logintest",
-                "password": "securepassword123"
-            }
-            
-            response = client.post("/api/v1/auth/login", data=login_data)
-            assert response.status_code == 200
-            data = response.json()
-            assert "access_token" in data
-            assert data["token_type"] == "bearer"
-            assert data["user"]["username"] == "logintest"
+        # Login with valid credentials
+        login_data = {
+            "username": f"logintest_{test_id}",
+            "password": "securepassword123"
+        }
+        
+        response = client.post("/api/v1/auth/login", data=login_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+        assert data["user"]["username"] == f"logintest_{test_id}"
+        
+        # Track the created user for safe cleanup
+        from app.core.database import get_db
+        db = next(get_db())
+        try:
+            user = db.query(User).filter(User.email == user_data["email"]).first()
+            if user:
+                track_test_user(user.id)
         finally:
-            # Clean up test user
-            db = next(get_db())
-            try:
-                self._cleanup_test_users(db)
-            finally:
-                db.close()
+            db.close()
 
     def test_user_cannot_login_with_invalid_credentials(self, client: TestClient):
         """Test that a user cannot login with invalid credentials."""
@@ -317,69 +293,45 @@ class TestUserAuthentication:
     @classmethod
     def _cleanup_test_users(cls, db: Session):
         """Clean up test users from the database."""
-        # Delete test users (identified by @example.com emails)
-        test_users = db.query(User).filter(User.email.like("%@example.com")).all()
-        for user in test_users:
-            # Delete related records first (in correct order)
-            # Delete collaborations where user is requester or target
-            collaborations = db.query(Collaboration).filter(
-                (Collaboration.requester_id == user.id) | (Collaboration.target_artist_id == user.id)
-            ).all()
-            for collab in collaborations:
-                db.delete(collab)
-            
-            # Delete music tracks by user
-            music_tracks = db.query(MusicTrack).filter(MusicTrack.artist_id == user.id).all()
-            for track in music_tracks:
-                db.delete(track)
-            
-            # Delete associated artist profile if it exists
-            artist_profile = db.query(ArtistProfile).filter(ArtistProfile.user_id == user.id).first()
-            if artist_profile:
-                db.delete(artist_profile)
-            
-            # Finally delete the user
-            db.delete(user)
-        
-        db.commit()
-        
-        # Reset sequences
-        db.execute(text("SELECT setval('users_id_seq', 1, false)"))
-        db.execute(text("SELECT setval('artist_profiles_id_seq', 1, false)"))
-        db.execute(text("SELECT setval('music_tracks_id_seq', 1, false)"))
-        db.execute(text("SELECT setval('collaborations_id_seq', 1, false)"))
-        db.commit()
+        # Use safe cleanup system from conftest.py
+        from .conftest import cleanup_test_users
+        cleanup_test_users(db)
 
     def test_user_can_access_protected_endpoint_with_valid_token(self, client: TestClient):
         """Test that a user can access protected endpoints with a valid token."""
+        from .conftest import create_test_user_id, track_test_user
+        
         # First register a user
+        test_id = create_test_user_id()
         user_data = {
-            "email": "authtest@example.com",
-            "username": "authtest",
+            "email": f"authtest_{test_id}@test.example.com",
+            "username": f"authtest_{test_id}",
             "password": "securepassword123",
             "display_name": "Auth Test User",
             "role": "user"
         }
 
-        try:
-            # Register user
-            register_response = client.post("/api/v1/auth/register", json=user_data)
-            assert register_response.status_code == 201
-            access_token = register_response.json()["access_token"]
+        # Register user
+        register_response = client.post("/api/v1/auth/register", json=user_data)
+        assert register_response.status_code == 201
+        access_token = register_response.json()["access_token"]
 
-            # Access protected endpoint
-            headers = {"Authorization": f"Bearer {access_token}"}
-            response = client.get("/api/v1/auth/me", headers=headers)
-            assert response.status_code == 200
-            data = response.json()
-            assert data["username"] == "authtest"
+        # Access protected endpoint
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = client.get("/api/v1/auth/me", headers=headers)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == f"authtest_{test_id}"
+        
+        # Track the created user for safe cleanup
+        from app.core.database import get_db
+        db = next(get_db())
+        try:
+            user = db.query(User).filter(User.email == user_data["email"]).first()
+            if user:
+                track_test_user(user.id)
         finally:
-            # Clean up test user
-            db = next(get_db())
-            try:
-                self._cleanup_test_users(db)
-            finally:
-                db.close()
+            db.close()
 
     def test_user_cannot_access_protected_endpoint_without_token(self, client: TestClient):
         """Test that a user cannot access protected endpoints without a token."""

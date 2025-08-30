@@ -213,24 +213,29 @@ async def search_artists(
     
     This endpoint allows users to discover artists based on genre, location, or instrument.
     """
-    # Build query
+    # Build query for active artists
     query = db.query(ArtistProfile).join(User).filter(User.is_active == True)
     
+    # Get all artists first, then filter in Python
+    artists = query.all()
+    
+    # Filter by genre if specified
     if genre:
-        # For now, skip genre filtering to get basic functionality working
-        # TODO: Implement proper JSON search
-        pass
+        artists = [artist for artist in artists if artist.genres and genre in artist.genres]
+    
+    # Filter by location if specified
     if location:
-        # Use LIKE for text search in location
-        query = query.filter(ArtistProfile.location.contains(location))
+        artists = [artist for artist in artists if artist.location and location.lower() in artist.location.lower()]
+    
+    # Filter by instrument if specified
     if instrument:
-        # For now, skip instrument filtering to get basic functionality working
-        # TODO: Implement proper JSON search
-        pass
+        artists = [artist for artist in artists if artist.instruments and instrument in artist.instruments]
     
     # Apply pagination
-    total_artists = query.count()
-    artists = query.offset((page - 1) * limit).limit(limit).all()
+    total_artists = len(artists)
+    start_idx = (page - 1) * limit
+    end_idx = start_idx + limit
+    artists = artists[start_idx:end_idx]
     
     # Calculate pagination info
     total_pages = (total_artists + limit - 1) // limit

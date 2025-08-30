@@ -3,9 +3,11 @@ Base model class with required columns for all tables.
 """
 
 from sqlalchemy import Column, Integer, DateTime
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
-from ..core.database import Base
+# Create Base class here to avoid circular imports
+Base = declarative_base()
 
 
 class BaseModel(Base):
