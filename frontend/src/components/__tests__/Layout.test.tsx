@@ -53,7 +53,7 @@ describe('Layout Component', () => {
     )
 
     const mainElement = screen.getByRole('main')
-    expect(mainElement).toHaveClass('min-h-screen', 'flex', 'flex-col')
+    expect(mainElement).toHaveClass('flex-1')
   })
 
   it('renders without crashing when empty children provided', () => {

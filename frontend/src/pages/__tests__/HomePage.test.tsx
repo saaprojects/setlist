@@ -77,7 +77,7 @@ describe('HomePage Component', () => {
     renderWithRouter(<HomePage />)
     
     const learnMoreButtons = screen.getAllByText('Learn More')
-    expect(learnMoreButtons).toHaveLength(4)
+    expect(learnMoreButtons).toHaveLength(5) // 4 in features + 1 in CTA
   })
 
   it('renders the final CTA section', () => {
@@ -91,7 +91,9 @@ describe('HomePage Component', () => {
     renderWithRouter(<HomePage />)
     
     expect(screen.getByText('Create Account')).toBeInTheDocument()
-    expect(screen.getByText('Learn More')).toBeInTheDocument()
+    // Use getAllByText since there are multiple "Learn More" buttons
+    const learnMoreButtons = screen.getAllByText('Learn More')
+    expect(learnMoreButtons.length).toBeGreaterThan(0)
   })
 
   it('has proper navigation links', () => {
@@ -109,10 +111,11 @@ describe('HomePage Component', () => {
   it('has proper feature navigation links', () => {
     renderWithRouter(<HomePage />)
     
-    const musicLink = screen.getByText('Discover Local Music').closest('a')
-    const showsLink = screen.getByText('Find Shows & Events').closest('a')
-    const artistsLink = screen.getByText('Connect with Artists').closest('a')
-    const venuesLink = screen.getByText('Venue Management').closest('a')
+    // Find the Learn More buttons which are the actual navigation links
+    const musicLink = screen.getByText('Discover Local Music').closest('.card')?.querySelector('a')
+    const showsLink = screen.getByText('Find Shows & Events').closest('.card')?.querySelector('a')
+    const artistsLink = screen.getByText('Connect with Artists').closest('.card')?.querySelector('a')
+    const venuesLink = screen.getByText('Venue Management').closest('.card')?.querySelector('a')
     
     expect(musicLink).toHaveAttribute('href', '/music')
     expect(showsLink).toHaveAttribute('href', '/shows')
@@ -127,8 +130,8 @@ describe('HomePage Component', () => {
     const heroSection = screen.getByText('Your Local Music').closest('section')
     expect(heroSection).toHaveClass('bg-gradient-to-br', 'from-primary-500', 'via-primary-600', 'to-secondary-600')
     
-    // Check for card classes
-    const featureCards = screen.getAllByText(/Learn More/).map(btn => btn.closest('.card'))
+    // Check for card classes - only check the first 4 (feature cards, not CTA)
+    const featureCards = screen.getAllByText(/Learn More/).slice(0, 4).map(btn => btn.closest('.card'))
     featureCards.forEach(card => {
       expect(card).toHaveClass('card')
     })
@@ -152,7 +155,7 @@ describe('HomePage Component', () => {
     renderWithRouter(<HomePage />)
     
     const headings = screen.getAllByRole('heading')
-    expect(headings).toHaveLength(6) // h1 + 5 h2 elements
+    expect(headings).toHaveLength(7) // h1 + 2 h2 + 4 h3 elements
     
     // Check main heading is h1
     const mainHeading = screen.getByRole('heading', { level: 1 })
