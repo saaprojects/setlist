@@ -12,6 +12,8 @@ import { MusicPage } from '@/pages/MusicPage'
 import { PlaylistsPage } from '@/pages/PlaylistsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { ArtistProfilePage } from '@/pages/ArtistProfilePage'
+import { EditArtistProfilePage } from '@/pages/EditArtistProfilePage'
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
         {/* Protected routes */}
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/artist/profile" element={<ArtistProfilePage />} />
+        <Route path="/artist/profile/edit" element={<EditArtistProfilePage />} />
         
         {/* 404 route */}
         <Route path="*" element={<NotFoundPage />} />

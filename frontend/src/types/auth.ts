@@ -8,6 +8,8 @@ export interface User {
   avatar_url?: string
   location?: string
   website?: string
+  genres?: string[]
+  instruments?: string[]
   social_links: Record<string, string>
   is_verified: boolean
   is_active: boolean

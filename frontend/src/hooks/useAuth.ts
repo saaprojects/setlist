@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { authApi } from '@/api/auth'
 import { UserRole } from '@/types/auth'
 import { User } from '@/types/auth'
+import { useNavigate } from 'react-router-dom'
 
 interface AuthState {
   user: User | null
@@ -18,6 +19,7 @@ export const useAuth = () => {
   })
 
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   // Check if user is authenticated on mount
   const { data: _user, isLoading: isCheckingAuth } = useQuery(
@@ -46,12 +48,24 @@ export const useAuth = () => {
   // Login mutation
   const loginMutation = useMutation(authApi.login, {
     onSuccess: (authResponse) => {
+      // Store the access token
+      localStorage.setItem('access_token', authResponse.access_token)
+      
       setAuthState({
         user: authResponse.user,
         isAuthenticated: true,
         isLoading: false,
       })
       queryClient.invalidateQueries('auth-user')
+      
+      // Redirect based on user role
+      if (authResponse.user.role === UserRole.ARTIST) {
+        navigate('/artist/profile')
+      } else if (authResponse.user.role === UserRole.PROMOTER) {
+        navigate('/promoter/dashboard')
+      } else {
+        navigate('/dashboard')
+      }
     },
     onError: (error) => {
       console.error('Login failed:', error)
@@ -65,12 +79,24 @@ export const useAuth = () => {
   // Register mutation
   const registerMutation = useMutation(authApi.register, {
     onSuccess: (authResponse) => {
+      // Store the access token
+      localStorage.setItem('access_token', authResponse.access_token)
+      
       setAuthState({
         user: authResponse.user,
         isAuthenticated: true,
         isLoading: false,
       })
       queryClient.invalidateQueries('auth-user')
+      
+      // Redirect based on user role
+      if (authResponse.user.role === UserRole.ARTIST) {
+        navigate('/artist/profile')
+      } else if (authResponse.user.role === UserRole.PROMOTER) {
+        navigate('/promoter/dashboard')
+      } else {
+        navigate('/dashboard')
+      }
     },
     onError: (error) => {
       console.error('Registration failed:', error)
@@ -84,6 +110,9 @@ export const useAuth = () => {
   // Logout mutation
   const logoutMutation = useMutation(authApi.logout, {
     onSuccess: () => {
+      // Clear the access token
+      localStorage.removeItem('access_token')
+      
       setAuthState({
         user: null,
         isAuthenticated: false,
@@ -94,6 +123,7 @@ export const useAuth = () => {
     onError: (error) => {
       console.error('Logout failed:', error)
       // Force logout even if API call fails
+      localStorage.removeItem('access_token')
       setAuthState({
         user: null,
         isAuthenticated: false,
