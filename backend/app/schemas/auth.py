@@ -36,6 +36,13 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
+    # Profile fields (for artists)
+    bio: Optional[str] = None
+    genres: Optional[list] = None
+    instruments: Optional[list] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    
     model_config = {"from_attributes": True}
 
 

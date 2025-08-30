@@ -140,6 +140,52 @@ export const ArtistProfilePage: React.FC = () => {
               </div>
             </div>
             
+            {/* Profile Information */}
+            <div className="card">
+              <div className="card-content">
+                <h3 className="text-lg font-semibold text-neutral-900 mb-4">Profile Information</h3>
+                
+                {/* Bio */}
+                {user.bio && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-neutral-900 mb-2">Bio</h4>
+                    <p className="text-neutral-700 whitespace-pre-wrap">{user.bio}</p>
+                  </div>
+                )}
+                
+                {/* Location */}
+                {user.location && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-neutral-900 mb-2">Location</h4>
+                    <p className="text-neutral-700">{user.location}</p>
+                  </div>
+                )}
+                
+                {/* Website */}
+                {user.website && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-neutral-900 mb-2">Website</h4>
+                    <a 
+                      href={user.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary-600 hover:text-primary-800 underline"
+                    >
+                      {user.website}
+                    </a>
+                  </div>
+                )}
+                
+                {/* Show message if no profile info */}
+                {!user.bio && !user.location && !user.website && (
+                  <div className="text-center py-6 text-neutral-500">
+                    <p>No profile information yet.</p>
+                    <p className="text-sm mt-2">Click "Edit Profile" to add your bio, location, and website.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             {/* Genres */}
             {user.genres && user.genres.length > 0 && (
               <div className="card mt-4">

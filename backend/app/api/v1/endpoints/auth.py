@@ -144,6 +144,25 @@ async def get_current_user_endpoint(token: str = Depends(oauth2_scheme), db: Ses
     Get current user information.
     """
     user = await get_current_user(token, db)
+    
+    # For artists, also fetch their profile data
+    if user.role == "artist":
+        artist_profile = db.query(ArtistProfile).filter(
+            ArtistProfile.user_id == user.id
+        ).first()
+        
+        if artist_profile:
+            # Create a user response with profile data
+            user_data = UserResponse.model_validate(user).model_dump()
+            user_data.update({
+                "bio": artist_profile.bio,
+                "genres": artist_profile.genres,
+                "instruments": artist_profile.instruments,
+                "location": artist_profile.location,
+                "website": artist_profile.website
+            })
+            return user_data
+    
     return UserResponse.model_validate(user)
 
 

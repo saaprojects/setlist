@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { authApi } from '@/api/auth'
+import { useQueryClient } from 'react-query'
 
 interface ArtistProfileForm {
   bio: string
@@ -25,6 +27,7 @@ const COMMON_INSTRUMENTS = [
 export const EditArtistProfilePage: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   
   const [formData, setFormData] = useState<ArtistProfileForm>({
     bio: '',
@@ -134,19 +137,33 @@ export const EditArtistProfilePage: React.FC = () => {
       return
     }
 
+    if (!user) {
+      console.error('No user data available')
+      return
+    }
+
     setIsSubmitting(true)
     
     try {
-      // TODO: Call backend API to update profile
-      console.log('Updating profile:', formData)
+      // Call backend API to update profile
+      const updatedUser = await authApi.updateProfile(user.id, {
+        bio: formData.bio,
+        genres: formData.genres,
+        instruments: formData.instruments,
+        location: formData.location,
+        website: formData.website
+      })
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      console.log('Profile updated successfully:', updatedUser)
+      
+      // Invalidate the auth query to refresh user data
+      queryClient.invalidateQueries('auth-user')
       
       // Redirect back to profile page
       navigate('/artist/profile')
     } catch (error) {
       console.error('Failed to update profile:', error)
+      // TODO: Show error message to user
     } finally {
       setIsSubmitting(false)
     }
