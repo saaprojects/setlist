@@ -25,6 +25,7 @@ export const useAuth = () => {
     authApi.getCurrentUser,
     {
       retry: false,
+      enabled: !!localStorage.getItem('access_token'), // Only run if token exists
       onSuccess: (userData) => {
         setAuthState({
           user: userData,
