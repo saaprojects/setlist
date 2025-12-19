@@ -1,10 +1,11 @@
 name: Fast Forward Pull Request
 on:
-  pull_request:
-    types: [synchronize]
-  workflow_dispatch:
+  issue_comment:
+    types: [created, edited]
 jobs:
   fast-forward:
+    # Only run if the comment contains the /fast-forward command.
+    if: ${{ contains(github.event.comment.body, '/fast-forward') && github.event.issue.pull_request }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -13,19 +14,8 @@ jobs:
       issues: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Check if source branch exists
-        id: check_branch
-        run: |
-          branch="${{ github.event.pull_request.head.ref }}"
-          git ls-remote --exit-code --heads origin "$branch" && echo "exists=true" >> $GITHUB_OUTPUT || echo "exists=false" >> $GITHUB_OUTPUT
-
-      - name: Fast forward source branch
-        if: steps.check_branch.outputs.exists == 'true'
+      - name: Fast forwarding
         uses: sequoia-pgp/fast-forward@v1
         with:
           merge: true
-          branch: ${{ github.event.pull_request.head.ref }}
           comment: always

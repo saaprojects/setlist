@@ -1,0 +1,40 @@
+name: Auto Fast Forward Comment
+
+on:
+  pull_request:
+    types: [ready_for_review, review_requested, labeled]
+  workflow_dispatch:
+
+jobs:
+  add-fast-forward-comment:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Check for required approvals
+        id: approvals
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const reviews = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const approved = reviews.data.some(r => r.state === 'APPROVED');
+            return approved;
+      - name: Post /fast-forward comment
+        if: steps.approvals.outputs.result == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: '/fast-forward'
+            });
