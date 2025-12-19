@@ -3,7 +3,7 @@
 Test Runner Script for Setlist Project
 
 This script runs both backend and frontend tests to show the current TDD status.
-Following the Red-Green-Refactor cycle, we expect tests to fail initially
+Following the Red-Green-Refactor cycle, we expect tests to fail initially.
 """
 
 import subprocess
